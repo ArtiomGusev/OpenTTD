@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file strings_func.h Functions related to OTTD's strings. */
@@ -11,10 +11,7 @@
 #define STRINGS_FUNC_H
 
 #include "strings_type.h"
-#include "string_type.h"
 #include "gfx_type.h"
-#include "core/bitmath_func.hpp"
-#include "core/convertible_through_base.hpp"
 #include "vehicle_type.h"
 
 /**
@@ -24,7 +21,7 @@
  */
 inline StringTab GetStringTab(StringID str)
 {
-	StringTab result = (StringTab)(str >> TAB_SIZE_BITS);
+	StringTab result = static_cast<StringTab>(str.base() >> TAB_SIZE_BITS);
 	if (result >= TEXT_TAB_NEWGRF_START) return TEXT_TAB_NEWGRF_START;
 	if (result >= TEXT_TAB_GAMESCRIPT_START) return TEXT_TAB_GAMESCRIPT_START;
 	return result;
@@ -37,7 +34,7 @@ inline StringTab GetStringTab(StringID str)
  */
 inline StringIndexInTab GetStringIndex(StringID str)
 {
-	return StringIndexInTab{str - (GetStringTab(str) << TAB_SIZE_BITS)};
+	return StringIndexInTab{str.base() - (GetStringTab(str) << TAB_SIZE_BITS)};
 }
 
 /**
@@ -56,12 +53,13 @@ inline StringID MakeStringID(StringTab tab, StringIndexInTab index)
 		assert(tab < TEXT_TAB_END);
 		assert(index < TAB_SIZE);
 	}
-	return (tab << TAB_SIZE_BITS) + index.base();
+	return StringID{(tab << TAB_SIZE_BITS) + index.base()};
 }
 
 /**
  * Prepare the string parameters for the next formatting run, resetting the type information.
  * This is only necessary if parameters are reused for multiple format runs.
+ * @param args The parameters to prepare.
  */
 static inline void PrepareArgsForNextRun(std::span<StringParameter> args)
 {
@@ -90,14 +88,15 @@ inline int64_t PackVelocity(uint speed, VehicleType type)
 	return speed | (static_cast<uint64_t>(type) << 56);
 }
 
-uint64_t GetParamMaxValue(uint64_t max_value, uint min_count = 0, FontSize size = FS_NORMAL);
-uint64_t GetParamMaxDigits(uint count, FontSize size = FS_NORMAL);
+uint64_t GetParamMaxValue(uint64_t max_value, uint min_count = 0, FontSize size = FontSize::Normal);
+uint64_t GetParamMaxDigits(uint count, FontSize size = FontSize::Normal);
 
 extern TextDirection _current_text_dir; ///< Text direction of the currently selected language
 
 void InitializeLanguagePacks();
 std::string_view GetCurrentLanguageIsoCode();
 std::string_view GetListSeparator();
+std::string_view GetEllipsis();
 
 /**
  * Helper to create the StringParameters with its own buffer with the given
@@ -157,8 +156,23 @@ EncodedString GetEncodedString(StringID string, const Args&... args)
  */
 class MissingGlyphSearcher {
 public:
-	/** Make sure everything gets destructed right. */
+	/** Ensure the destructor of the sub classes are called as well. */
 	virtual ~MissingGlyphSearcher() = default;
+
+	FontSizes missing_fontsizes{}; ///< Font sizes to actually search for.
+	std::set<char32_t> missing_glyphs{}; ///< Glyphs to search for.
+
+	/**
+	 * Determine set of glyphs required for the current language.
+	 * @param fontsizes Font sizes to test.
+	 **/
+	virtual void DetermineRequiredGlyphs(FontSizes fontsizes) = 0;
+};
+
+/** Base for missing glyph searchers that look for missing glyphs in strings. */
+class BaseStringMissingGlyphSearcher : public MissingGlyphSearcher {
+public:
+	void DetermineRequiredGlyphs(FontSizes fontsizes) override;
 
 	/**
 	 * Get the next string to search through.
@@ -176,24 +190,8 @@ public:
 	 * Reset the search, i.e. begin from the beginning again.
 	 */
 	virtual void Reset() = 0;
-
-	/**
-	 * Whether to search for a monospace font or not.
-	 * @return True if searching for monospace.
-	 */
-	virtual bool Monospace() = 0;
-
-	/**
-	 * Set the right font names.
-	 * @param settings  The settings to modify.
-	 * @param font_name The new font name.
-	 * @param os_data Opaque pointer to OS-specific data.
-	 */
-	virtual void SetFontNames(struct FontCacheSettings *settings, std::string_view font_name, const void *os_data = nullptr) = 0;
-
-	bool FindMissingGlyphs();
 };
 
-void CheckForMissingGlyphs(bool base_font = true, MissingGlyphSearcher *search = nullptr);
+void CheckForMissingGlyphs(FontSizes fontsizes = FONTSIZES_REQUIRED, MissingGlyphSearcher *searcher = nullptr);
 
 #endif /* STRINGS_FUNC_H */

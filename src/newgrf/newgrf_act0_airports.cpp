@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file newgrf_act0_airports.cpp NewGRF Action 0x00 handler for airports. */
@@ -18,6 +18,28 @@
 #include "../safeguards.h"
 
 /**
+ * Validate the airport layout; e.g. to prevent duplicate tiles.
+ * @param layout The layout to check.
+ * @return True if the layout is deemed valid.
+ */
+static bool ValidateAirportLayout(const AirportTileLayout &layout)
+{
+	const size_t size = layout.tiles.size();
+	if (size == 0) return false;
+
+	for (size_t i = 0; i < size - 1; i++) {
+		for (size_t j = i + 1; j < size; j++) {
+			if (layout.tiles[i].ti.x == layout.tiles[j].ti.x &&
+					layout.tiles[i].ti.y == layout.tiles[j].ti.y) {
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+/**
  * Define properties for airports
  * @param first Local ID of the first airport.
  * @param last Local ID of the last airport.
@@ -27,11 +49,11 @@
  */
 static ChangeInfoResult AirportChangeInfo(uint first, uint last, int prop, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	if (last > NUM_AIRPORTS_PER_GRF) {
 		GrfMsg(1, "AirportChangeInfo: Too many airports, trying id ({}), max ({}). Ignoring.", last, NUM_AIRPORTS_PER_GRF);
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	/* Allocate industry specs if they haven't been allocated already. */
@@ -42,7 +64,7 @@ static ChangeInfoResult AirportChangeInfo(uint first, uint last, int prop, ByteR
 
 		if (as == nullptr && prop != 0x08 && prop != 0x09) {
 			GrfMsg(2, "AirportChangeInfo: Attempt to modify undefined airport {}, ignoring", id);
-			return CIR_INVALID_ID;
+			return ChangeInfoResult::InvalidId;
 		}
 
 		switch (prop) {
@@ -77,18 +99,28 @@ static ChangeInfoResult AirportChangeInfo(uint first, uint last, int prop, ByteR
 
 			case 0x0A: { // Set airport layout
 				uint8_t num_layouts = buf.ReadByte();
-				buf.ReadDWord(); // Total size of definition, unneeded.
+				size_t definition_size = buf.ReadDWord();
+				size_t definition_end = definition_size + buf.GetBytesRead();
 				uint8_t size_x = 0;
 				uint8_t size_y = 0;
 
 				std::vector<AirportTileLayout> layouts;
 				layouts.reserve(num_layouts);
 
+				AirportTileLayout layout;
+
 				for (uint8_t j = 0; j != num_layouts; ++j) {
-					auto &layout = layouts.emplace_back();
+					bool invalid_layout = false;
+					layout.tiles.clear();
 					layout.rotation = static_cast<Direction>(buf.ReadByte() & 6); // Rotation can only be DIR_NORTH, DIR_EAST, DIR_SOUTH or DIR_WEST.
 
 					for (;;) {
+						if (definition_end < buf.GetBytesRead()) {
+							GrfMsg(3, "AirportChangeInfo: Incorrect size for airport tile layout definition for airport {}.", id);
+							/* Avoid warning twice */
+							definition_end = SIZE_MAX;
+						}
+
 						auto &tile = layout.tiles.emplace_back();
 						tile.ti.x = buf.ReadByte();
 						tile.ti.y = buf.ReadByte();
@@ -109,6 +141,7 @@ static ChangeInfoResult AirportChangeInfo(uint first, uint last, int prop, ByteR
 
 							if (tempid == INVALID_AIRPORTTILE) {
 								GrfMsg(2, "AirportChangeInfo: Attempt to use airport tile {} with airport id {}, not yet defined. Ignoring.", local_tile_id, id);
+								invalid_layout = true;
 							} else {
 								/* Declared as been valid, can be used */
 								tile.gfx = tempid;
@@ -116,16 +149,28 @@ static ChangeInfoResult AirportChangeInfo(uint first, uint last, int prop, ByteR
 						} else if (tile.gfx == 0xFF) {
 							tile.ti.x = static_cast<int8_t>(GB(tile.ti.x, 0, 8));
 							tile.ti.y = static_cast<int8_t>(GB(tile.ti.y, 0, 8));
+						} else if (tile.gfx >= NEW_AIRPORTTILE_OFFSET) {
+							GrfMsg(2, "AirportChangeInfo: Attempt to use invalid airport tile {} with airport id {}. Ignoring.", tile.gfx, id);
+							invalid_layout = true;
 						}
 
 						/* Determine largest size. */
-						if (layout.rotation == DIR_E || layout.rotation == DIR_W) {
+						if (layout.rotation == Direction::E || layout.rotation == Direction::W) {
 							size_x = std::max<uint8_t>(size_x, tile.ti.y + 1);
 							size_y = std::max<uint8_t>(size_y, tile.ti.x + 1);
 						} else {
 							size_x = std::max<uint8_t>(size_x, tile.ti.x + 1);
 							size_y = std::max<uint8_t>(size_y, tile.ti.y + 1);
 						}
+					}
+
+					if (invalid_layout) continue;
+
+					if (!ValidateAirportLayout(layout)) {
+						/* The airport layout was not valid, so skip this one. */
+						GrfMsg(1, "AirportChangeInfo: Invalid airport layout for airport id {}. Ignoring", id);
+					} else {
+						layouts.push_back(layout);
 					}
 				}
 				as->layouts = std::move(layouts);
@@ -161,11 +206,11 @@ static ChangeInfoResult AirportChangeInfo(uint first, uint last, int prop, ByteR
 				break;
 
 			case 0x12: // Badge list
-				as->badges = ReadBadgeList(buf, GSF_AIRPORTS);
+				as->badges = ReadBadgeList(buf, GrfSpecFeature::Airports);
 				break;
 
 			default:
-				ret = CIR_UNKNOWN;
+				ret = ChangeInfoResult::Unknown;
 				break;
 		}
 	}
@@ -175,11 +220,11 @@ static ChangeInfoResult AirportChangeInfo(uint first, uint last, int prop, ByteR
 
 static ChangeInfoResult AirportTilesChangeInfo(uint first, uint last, int prop, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	if (last > NUM_AIRPORTTILES_PER_GRF) {
 		GrfMsg(1, "AirportTileChangeInfo: Too many airport tiles loaded ({}), max ({}). Ignoring.", last, NUM_AIRPORTTILES_PER_GRF);
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	/* Allocate airport tile specs if they haven't been allocated already. */
@@ -190,7 +235,7 @@ static ChangeInfoResult AirportTilesChangeInfo(uint first, uint last, int prop, 
 
 		if (prop != 0x08 && tsp == nullptr) {
 			GrfMsg(2, "AirportTileChangeInfo: Attempt to modify undefined airport tile {}. Ignoring.", id);
-			return CIR_INVALID_ID;
+			return ChangeInfoResult::InvalidId;
 		}
 
 		switch (prop) {
@@ -249,11 +294,11 @@ static ChangeInfoResult AirportTilesChangeInfo(uint first, uint last, int prop, 
 				break;
 
 			case 0x12: // Badge list
-				tsp->badges = ReadBadgeList(buf, GSF_TRAMTYPES);
+				tsp->badges = ReadBadgeList(buf, GrfSpecFeature::TramTypes);
 				break;
 
 			default:
-				ret = CIR_UNKNOWN;
+				ret = ChangeInfoResult::Unknown;
 				break;
 		}
 	}
@@ -261,8 +306,12 @@ static ChangeInfoResult AirportTilesChangeInfo(uint first, uint last, int prop, 
 	return ret;
 }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_AIRPORTS>::Reserve(uint, uint, int, ByteReader &) { return CIR_UNHANDLED; }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_AIRPORTS>::Activation(uint first, uint last, int prop, ByteReader &buf) { return AirportChangeInfo(first, last, prop, buf); }
+/** @copybrief GrfChangeInfoHandler::Reserve @return Always ChangeInfoResult::Unhandled. */
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Airports>::Reserve(uint, uint, int, ByteReader &) { return ChangeInfoResult::Unhandled; }
+/** @copydoc GrfChangeInfoHandler::Activation */
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Airports>::Activation(uint first, uint last, int prop, ByteReader &buf) { return AirportChangeInfo(first, last, prop, buf); }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_AIRPORTTILES>::Reserve(uint, uint, int, ByteReader &) { return CIR_UNHANDLED; }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_AIRPORTTILES>::Activation(uint first, uint last, int prop, ByteReader &buf) { return AirportTilesChangeInfo(first, last, prop, buf); }
+/** @copybrief GrfChangeInfoHandler::Reserve @return Always ChangeInfoResult::Unhandled. */
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::AirportTiles>::Reserve(uint, uint, int, ByteReader &) { return ChangeInfoResult::Unhandled; }
+/** @copydoc GrfChangeInfoHandler::Activation */
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::AirportTiles>::Activation(uint first, uint last, int prop, ByteReader &buf) { return AirportTilesChangeInfo(first, last, prop, buf); }

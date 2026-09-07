@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file town_land.h Sprites to use and how to display them for town tiles. */
@@ -13,15 +13,15 @@
  * @param p1 The first sprite's palette of the building, mostly the ground sprite
  * @param s2 The second sprite of the building.
  * @param p2 The second sprite's palette of the building.
- * @param sx The x-position of the sprite within the tile
- * @param sy the y-position of the sprite within the tile
- * @param w the width of the sprite
- * @param h the height of the sprite
- * @param dz the virtual height of the sprite
+ * @param dx The x-position of the sprite within the tile.
+ * @param dy the y-position of the sprite within the tile.
+ * @param sx the x-extent of the sprite.
+ * @param sy the y-extent of the sprite.
+ * @param sz the z-extent of the sprite.
  * @param p set to 1 if a lift is present ()
  * @see DrawBuildingsTileStruct
  */
-#define M(s1, p1, s2, p2, sx, sy, w, h, dz, p) { { s1, p1 }, { s2, p2 }, sx, sy, w, h, dz, p}
+#define M(s1, p1, s2, p2, dx, dy, sx, sy, sz, p) { {{dx, dy, 0}, {sx, sy, sz}, {}}, { s1, p1 }, { s2, p2 }, p}
 
 /** structure of houses graphics*/
 static const DrawBuildingsTileStruct _town_draw_tile_data[] = {
@@ -1813,8 +1813,8 @@ static_assert(lengthof(_town_draw_tile_data) == (NEW_HOUSE_OFFSET) * 4 * 4);
 	{TimerGameCalendar::Year{mnd}, TimerGameCalendar::Year{mxd}, p, rc, bn, rr, mg, \
 	{ca1, ca2, ca3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, \
 	{INVALID_CARGO, INVALID_CARGO, INVALID_CARGO, INVALID_CARGO, INVALID_CARGO, INVALID_CARGO, INVALID_CARGO, INVALID_CARGO, INVALID_CARGO, INVALID_CARGO, INVALID_CARGO, INVALID_CARGO, INVALID_CARGO, INVALID_CARGO, INVALID_CARGO, INVALID_CARGO}, \
-	bf, ba, true, SubstituteGRFFileProps(INVALID_HOUSE_ID), HouseCallbackMasks{}, {COLOUR_BEGIN, COLOUR_BEGIN, COLOUR_BEGIN, COLOUR_BEGIN}, \
-	16, HouseExtraFlags{}, HOUSE_NO_CLASS, AnimationInfo<void>{}, 0, 0, 0, {}, {cg1, cg2, cg3}, }
+	bf, ba, true, SubstituteGRFFileProps(INVALID_HOUSE_ID), HouseCallbackMasks{}, {Colours::Begin, Colours::Begin, Colours::Begin, Colours::Begin}, \
+	16, HouseExtraFlags{}, HOUSE_NO_CLASS, AnimationInfo<void>{}, 0, 0, CargoTypes{}, {}, {cg1, cg2, cg3}, }
 /** House specifications from original data */
 extern const HouseSpec _original_house_specs[] = {
 	/**

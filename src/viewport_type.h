@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file viewport_type.h Types related to viewports. */
@@ -23,6 +23,8 @@ enum class ViewportStringFlag : uint8_t {
 	TransparentRect, ///< Draw a transparent rect around the sign.
 	TextColour, ///< Draw text in colour.
 };
+
+/** Bitset of \c ViewportStringFlag elements. */
 using ViewportStringFlags = EnumBitSet<ViewportStringFlag, uint8_t>;
 
 /**
@@ -65,6 +67,10 @@ struct TrackedViewportSign : ViewportSign {
 	/**
 	 * Update the position of the viewport sign.
 	 * Note that this function hides the base class function.
+	 * @param center The (preferred) center of the viewport sign.
+	 * @param top The new top of the sign.
+	 * @param str The string to show in the sign.
+	 * @param str_small The string to show when zoomed out. If the string is empty then the \a str is used.
 	 */
 	void UpdatePosition(int center, int top, std::string_view str, std::string_view str_small = {})
 	{
@@ -89,8 +95,8 @@ enum ZoomStateChange : uint8_t {
  * z=6     reserved, currently unused.
  * z=7     Z separator between bridge/tunnel and the things under/above it.
  */
-static const uint BB_HEIGHT_UNDER_BRIDGE = 6; ///< Everything that can be built under low bridges, must not exceed this Z height.
-static const uint BB_Z_SEPARATOR         = 7; ///< Separates the bridge/tunnel from the things under/above it.
+static constexpr int BB_HEIGHT_UNDER_BRIDGE = 6; ///< Everything that can be built under low bridges, must not exceed this Z height.
+static constexpr int BB_Z_SEPARATOR         = 7; ///< Separates the bridge/tunnel from the things under/above it.
 
 /** Viewport place method (type of highlighted area and placed objects) */
 enum ViewportPlaceMethod : uint8_t {
@@ -119,11 +125,13 @@ enum ViewportDragDropSelectionProcess : uint8_t {
 	DDSP_LEVEL_AREA,           ///< Level area
 	DDSP_CREATE_DESERT,        ///< Fill area with desert
 	DDSP_CREATE_ROCKS,         ///< Fill area with rocks
+	DDSP_CREATE_ROUGH,         ///< Fill area with rough land
 	DDSP_CREATE_WATER,         ///< Create a canal
 	DDSP_CREATE_RIVER,         ///< Create rivers
 	DDSP_PLANT_TREES,          ///< Plant trees
 	DDSP_BUILD_BRIDGE,         ///< Bridge placement
 	DDSP_BUILD_OBJECT,         ///< Build an object
+	DDSP_PLACE_HOUSE,          ///< Place a house
 
 	/* Rail specific actions */
 	DDSP_PLACE_RAIL,           ///< Rail placement
@@ -149,10 +157,10 @@ enum ViewportDragDropSelectionProcess : uint8_t {
 /**
  * Target of the viewport scrolling GS method
  */
-enum ViewportScrollTarget : uint8_t {
-	VST_EVERYONE, ///< All players
-	VST_COMPANY,  ///< All players in specific company
-	VST_CLIENT,   ///< Single player
+enum class ViewportScrollTarget : uint8_t {
+	Everyone, ///< All players
+	Company, ///< All players in specific company
+	Client, ///< Single player
 };
 
 #endif /* VIEWPORT_TYPE_H */

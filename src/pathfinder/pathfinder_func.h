@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file pathfinder_func.h General functions related to pathfinders. */
@@ -25,11 +25,10 @@
 inline TileIndex CalcClosestStationTile(StationID station, TileIndex tile, StationType station_type)
 {
 	const BaseStation *st = BaseStation::Get(station);
-	TileArea ta;
-	st->GetTileArea(&ta, station_type);
+	TileArea ta = st->GetTileArea(station_type);
 
 	/* If the rail station is (temporarily) not present, use the station sign to drive near the station */
-	if (ta.tile == INVALID_TILE) return st->xy;
+	if (ta.IsEmpty()) return st->xy;
 
 	uint minx = TileX(ta.tile);  // topmost corner of station
 	uint miny = TileY(ta.tile);
@@ -48,31 +47,34 @@ inline TileIndex CalcClosestStationTile(StationID station, TileIndex tile, Stati
 }
 
 /**
- * Wrapper around GetTileTrackStatus() and TrackStatusToTrackdirBits(), as for
- * single tram bits GetTileTrackStatus() returns 0. The reason for this is
+ * Wrapper around GetTileTrackStatus(), as for single tram bits
+ * GetTileTrackStatus() returns 0. The reason for this is
  * that there are no half-tile TrackBits in OpenTTD.
  * This tile, however, is a valid tile for trams, one on which they can
  * reverse safely. To "fix" this, pretend that if we are on a half-tile, we
  * are in fact on a straight tram track tile. CFollowTrackT will make sure
  * the pathfinders cannot exit on the wrong side and allows reversing on such
  * tiles.
+ * @param tile The tile to check.
+ * @param rtt Whether to check the road or tram type.
+ * @return The trackdir bits on the tile.
  */
 inline TrackdirBits GetTrackdirBitsForRoad(TileIndex tile, RoadTramType rtt)
 {
-	TrackdirBits bits = TrackStatusToTrackdirBits(GetTileTrackStatus(tile, TRANSPORT_ROAD, rtt));
+	TrackdirBits bits = GetTileTrackStatus(tile, TransportType::Road, rtt).trackdirs;
 
-	if (rtt == RTT_TRAM && bits == TRACKDIR_BIT_NONE) {
+	if (rtt == RoadTramType::Tram && bits.None()) {
 		if (IsNormalRoadTile(tile)) {
-			RoadBits rb = GetRoadBits(tile, RTT_TRAM);
-			switch (rb) {
-				case ROAD_NE:
-				case ROAD_SW:
-					bits = TRACKDIR_BIT_X_NE | TRACKDIR_BIT_X_SW;
+			RoadBits rb = GetRoadBits(tile, RoadTramType::Tram);
+			switch (rb.base()) {
+				case RoadBits{RoadBit::NE}.base():
+				case RoadBits{RoadBit::SW}.base():
+					bits = {Trackdir::X_NE, Trackdir::X_SW};
 					break;
 
-				case ROAD_NW:
-				case ROAD_SE:
-					bits = TRACKDIR_BIT_Y_NW | TRACKDIR_BIT_Y_SE;
+				case RoadBits{RoadBit::NW}.base():
+				case RoadBits{RoadBit::SE}.base():
+					bits = {Trackdir::Y_NW, Trackdir::Y_SE};
 					break;
 
 				default: break;

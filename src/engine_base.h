@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file engine_base.h Base class for engines. */
@@ -11,6 +11,7 @@
 #define ENGINE_BASE_H
 
 #include "engine_type.h"
+#include "newgrf.h"
 #include "vehicle_type.h"
 #include "core/enum_type.hpp"
 #include "core/pool_type.hpp"
@@ -30,12 +31,14 @@ enum class EngineDisplayFlag : uint8_t {
 	Shaded, ///< Set if engine should be masked.
 };
 
+/** Bitset of \c EngineDisplayFlag elements. */
 using EngineDisplayFlags = EnumBitSet<EngineDisplayFlag, uint8_t>;
 
 typedef Pool<Engine, EngineID, 64> EnginePool;
 extern EnginePool _engine_pool;
 
-struct Engine : EnginePool::PoolItem<&_engine_pool> {
+class Engine : public EnginePool::PoolItem<&_engine_pool> {
+public:
 	CompanyMask company_avail{}; ///< Bit for each company whether the engine is available for that company.
 	CompanyMask company_hidden{}; ///< Bit for each company whether the engine is normally hidden in the build gui for that company.
 	CompanyMask preview_asked{}; ///< Bit for each company which has already been offered a preview.
@@ -58,18 +61,11 @@ struct Engine : EnginePool::PoolItem<&_engine_pool> {
 	CompanyID preview_company = CompanyID::Invalid();  ///< Company which is currently being offered a preview \c CompanyID::Invalid() means no company.
 	uint8_t preview_wait = 0; ///< Daily countdown timer for timeout of offering the engine to the #preview_company company.
 	uint8_t original_image_index = 0; ///< Original vehicle image index, thus the image index of the overridden vehicle
-	VehicleType type = VEH_INVALID; ///< %Vehicle type, ie #VEH_ROAD, #VEH_TRAIN, etc.
+	VehicleType type = VehicleType::Invalid; ///< %Vehicle type, ie #VehicleType::Road, #VehicleType::Train, etc.
 
 	EngineDisplayFlags display_flags{}; ///< NOSAVE client-side-only display flags for build engine list.
 	EngineID display_last_variant = EngineID::Invalid(); ///< NOSAVE client-side-only last variant selected.
 	EngineInfo info{};
-
-	union {
-		RailVehicleInfo rail;
-		RoadVehicleInfo road;
-		ShipVehicleInfo ship;
-		AircraftVehicleInfo air;
-	} u{};
 
 	uint16_t list_position = 0;
 
@@ -78,8 +74,12 @@ struct Engine : EnginePool::PoolItem<&_engine_pool> {
 	std::vector<WagonOverride> overrides{};
 	std::vector<BadgeID> badges{};
 
-	Engine() {}
-	Engine(VehicleType type, uint16_t local_id);
+private:
+	/** Vehicle-type specific information. */
+	std::variant<std::monostate, RailVehicleInfo, RoadVehicleInfo, ShipVehicleInfo, AircraftVehicleInfo> vehicle_info{};
+
+public:
+	Engine(EngineID index, VehicleType type, uint16_t local_id);
 	bool IsEnabled() const;
 
 	/**
@@ -156,7 +156,7 @@ struct Engine : EnginePool::PoolItem<&_engine_pool> {
 	 */
 	inline bool IsGroundVehicle() const
 	{
-		return this->type == VEH_TRAIN || this->type == VEH_ROAD;
+		return this->type == VehicleType::Train || this->type == VehicleType::Road;
 	}
 
 	/**
@@ -169,13 +169,25 @@ struct Engine : EnginePool::PoolItem<&_engine_pool> {
 		return this->grf_prop.grffile;
 	}
 
-	uint32_t GetGRFID() const;
+	GrfID GetGRFID() const;
 
 	struct EngineTypeFilter {
 		VehicleType vt;
 
 		bool operator() (size_t index) { return Engine::Get(index)->type == this->vt; }
 	};
+
+	template <typename T>
+	inline T &VehInfo()
+	{
+		return std::get<T>(this->vehicle_info);
+	}
+
+	template <typename T>
+	inline const T &VehInfo() const
+	{
+		return std::get<T>(this->vehicle_info);
+	}
 
 	/**
 	 * Returns an iterable ensemble of all valid engines of the given type
@@ -190,18 +202,38 @@ struct Engine : EnginePool::PoolItem<&_engine_pool> {
 };
 
 struct EngineIDMapping {
-	uint32_t grfid = 0; ///< The GRF ID of the file the entity belongs to
+	GrfID grfid{}; ///< The GRF ID of the file the entity belongs to
 	uint16_t internal_id = 0; ///< The internal ID within the GRF file
 	VehicleType type{}; ///< The engine type
 	uint8_t substitute_id = 0; ///< The (original) entity ID to use if this GRF is not available (currently not used)
 	EngineID engine{};
 
-	static inline uint64_t Key(uint32_t grfid, uint16_t internal_id) { return static_cast<uint64_t>(grfid) << 32 | internal_id; }
+	/**
+	 * Create a 64 bit key from the GRFID and internal ID for mappings.
+	 * @param grfid The NewGRF id.
+	 * @param internal_id The internal ID within the GRF file.
+	 * @return The key.
+	 */
+	static inline uint64_t Key(GrfID grfid, uint16_t internal_id) { return static_cast<uint64_t>(FlattenNewGRFLabel(grfid)) << 32 | internal_id; }
 
+	/**
+	 * Create a 64 bit key from this mapping.
+	 * @return The key.
+	 */
 	inline uint64_t Key() const { return Key(this->grfid, this->internal_id); }
 
+	/** Create a new mapping. */
 	EngineIDMapping() {}
-	EngineIDMapping(uint32_t grfid, uint16_t internal_id, VehicleType type, uint8_t substitute_id, EngineID engine)
+
+	/**
+	 * Create the mapping.
+	 * @param grfid The unique identifer of the NewGRF.
+	 * @param internal_id The internal identifier of the engine within the NewGRF.
+	 * @param type The vehicle type.
+	 * @param substitute_id The original vehicle to fall back to.
+	 * @param engine The engine the mapping is for.
+	 */
+	EngineIDMapping(GrfID grfid, uint16_t internal_id, VehicleType type, uint8_t substitute_id, EngineID engine)
 		: grfid(grfid), internal_id(internal_id), type(type), substitute_id(substitute_id), engine(engine) {}
 };
 
@@ -212,15 +244,15 @@ struct EngineIDMappingKeyProjection {
 
 /**
  * Stores the mapping of EngineID to the internal id of newgrfs.
- * Note: This is not part of Engine, as the data in the EngineOverrideManager and the engine pool get resetted in different cases.
+ * Note: This is not part of Engine, as the data in the EngineOverrideManager and the engine pool get reset in different cases.
  */
 struct EngineOverrideManager {
-	std::array<std::vector<EngineIDMapping>, VEH_COMPANY_END> mappings;
+	VehicleTypeIndexArray<std::vector<EngineIDMapping>> mappings;
 
 	void ResetToDefaultMapping();
-	EngineID GetID(VehicleType type, uint16_t grf_local_id, uint32_t grfid);
-	EngineID UseUnreservedID(VehicleType type, uint16_t grf_local_id, uint32_t grfid, bool static_access);
-	void SetID(VehicleType type, uint16_t grf_local_id, uint32_t grfid, uint8_t substitute_id, EngineID engine);
+	EngineID GetID(VehicleType type, uint16_t grf_local_id, GrfID grfid);
+	EngineID UseUnreservedID(VehicleType type, uint16_t grf_local_id, GrfID grfid, bool static_access);
+	void SetID(VehicleType type, uint16_t grf_local_id, GrfID grfid, uint8_t substitute_id, EngineID engine);
 
 	static bool ResetToCurrentNewGRFConfig();
 };
@@ -234,22 +266,22 @@ inline const EngineInfo *EngInfo(EngineID e)
 
 inline const RailVehicleInfo *RailVehInfo(EngineID e)
 {
-	return &Engine::Get(e)->u.rail;
+	return &Engine::Get(e)->VehInfo<RailVehicleInfo>();
 }
 
 inline const RoadVehicleInfo *RoadVehInfo(EngineID e)
 {
-	return &Engine::Get(e)->u.road;
+	return &Engine::Get(e)->VehInfo<RoadVehicleInfo>();
 }
 
 inline const ShipVehicleInfo *ShipVehInfo(EngineID e)
 {
-	return &Engine::Get(e)->u.ship;
+	return &Engine::Get(e)->VehInfo<ShipVehicleInfo>();
 }
 
 inline const AircraftVehicleInfo *AircraftVehInfo(EngineID e)
 {
-	return &Engine::Get(e)->u.air;
+	return &Engine::Get(e)->VehInfo<AircraftVehicleInfo>();
 }
 
 #endif /* ENGINE_BASE_H */

@@ -2,15 +2,19 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file dropdown.cpp Implementation of the dropdown widget. */
 
 #include "stdafx.h"
+#include "core/backup_type.hpp"
 #include "dropdown_type.h"
 #include "dropdown_func.h"
+#include "stringfilter_type.h"
+#include "querystring_gui.h"
 #include "strings_func.h"
+#include "sound_func.h"
 #include "timer/timer.h"
 #include "timer/timer_window.h"
 #include "window_gui.h"
@@ -25,49 +29,95 @@
 
 #include "safeguards.h"
 
+/**
+ * Creates new #DropDownListDividerItem.
+ * @return Unique pointer to newly created drop down item.
+ */
 std::unique_ptr<DropDownListItem> MakeDropDownListDividerItem()
 {
 	return std::make_unique<DropDownListDividerItem>(-1);
 }
 
+/**
+ * Creates new #DropDownListStringItem.
+ * @param str The string to show on this item in the drop down menu.
+ * @param value The value to use when the item becomes selected.
+ * @param masked Whether the item should be masked out.
+ * @param shaded Whether the item should be shaded.
+ * @return Unique pointer to newly created drop down item.
+ */
 std::unique_ptr<DropDownListItem> MakeDropDownListStringItem(StringID str, int value, bool masked, bool shaded)
 {
 	return MakeDropDownListStringItem(GetString(str), value, masked, shaded);
 }
 
+/** @copydoc MakeDropDownListStringItem */
 std::unique_ptr<DropDownListItem> MakeDropDownListStringItem(std::string &&str, int value, bool masked, bool shaded)
 {
 	return std::make_unique<DropDownListStringItem>(std::move(str), value, masked, shaded);
 }
 
+/**
+ * Creates new #DropDownListIconItem.
+ * @param sprite The sprite id to use as an icon on the side of the string.
+ * @param palette The palette to use when drawing icon.
+ * @param str The string to show on this item in the drop down menu.
+ * @param value The value to use when the item becomes selected.
+ * @param masked Whether the item should be masked out.
+ * @param shaded Whether the item should be shaded.
+ * @return Unique pointer to newly created drop down item.
+ */
 std::unique_ptr<DropDownListItem> MakeDropDownListIconItem(SpriteID sprite, PaletteID palette, StringID str, int value, bool masked, bool shaded)
 {
 	return std::make_unique<DropDownListIconItem>(sprite, palette, GetString(str), value, masked, shaded);
 }
 
+/**
+ * @copydoc MakeDropDownListIconItem
+ * @param dim The rect specifying what part from the sprite should be used as an icon.
+ */
 std::unique_ptr<DropDownListItem> MakeDropDownListIconItem(const Dimension &dim, SpriteID sprite, PaletteID palette, StringID str, int value, bool masked, bool shaded)
 {
 	return std::make_unique<DropDownListIconItem>(dim, sprite, palette, GetString(str), value, masked, shaded);
 }
 
+/**
+ * Creates new #DropDownListCheckedItem.
+ * @param checked Whether the tick before the string should be visible or not.
+ * @param str The string to show on this item in the drop down menu.
+ * @param value The value to use when the item becomes selected.
+ * @param masked Whether the item should be masked out.
+ * @param shaded Whether the item should be shaded.
+ * @param indent By what factor the tick and string should be indent.
+ * @return Unique pointer to newly created drop down item.
+ */
 std::unique_ptr<DropDownListItem> MakeDropDownListCheckedItem(bool checked, StringID str, int value, bool masked, bool shaded, uint indent)
 {
 	return std::make_unique<DropDownListCheckedItem>(indent, checked, GetString(str), value, masked, shaded);
 }
 
-static constexpr NWidgetPart _nested_dropdown_menu_widgets[] = {
-	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_PANEL, COLOUR_END, WID_DM_ITEMS), SetScrollbar(WID_DM_SCROLL), EndContainer(),
-		NWidget(NWID_SELECTION, INVALID_COLOUR, WID_DM_SHOW_SCROLL),
-			NWidget(NWID_VSCROLLBAR, COLOUR_END, WID_DM_SCROLL),
+static constexpr std::initializer_list<NWidgetPart> _nested_dropdown_menu_widgets = {
+	NWidget(NWID_VERTICAL),
+		NWidget(NWID_SELECTION, Colours::Invalid, WID_DM_FILTER_SEL),
+			NWidget(WWT_PANEL, Colours::End, WID_DM_FILTER_PANEL),
+				NWidget(WWT_EDITBOX, Colours::End, WID_DM_FILTER), SetResize(1, 0), SetFill(1, 0), SetPadding(2), SetStringTip(STR_LIST_FILTER_OSKTITLE, STR_LIST_FILTER_TOOLTIP),
+			EndContainer(),
+		EndContainer(),
+		NWidget(NWID_HORIZONTAL),
+			NWidget(WWT_PANEL, Colours::End, WID_DM_ITEMS), SetScrollbar(WID_DM_SCROLL),
+			EndContainer(),
+			NWidget(NWID_SELECTION, Colours::Invalid, WID_DM_SHOW_SCROLL),
+				NWidget(NWID_VSCROLLBAR, Colours::End, WID_DM_SCROLL),
+			EndContainer(),
 		EndContainer(),
 	EndContainer(),
 };
 
+/** Window description for dropdown menus. */
 static WindowDesc _dropdown_desc(
-	WDP_MANUAL, {}, 0, 0,
-	WC_DROPDOWN_MENU, WC_NONE,
-	WindowDefaultFlag::NoFocus,
+	WindowPosition::Manual, {}, 0, 0,
+	WindowClass::DropdownMenu, WindowClass::None,
+	{},
 	_nested_dropdown_menu_widgets
 );
 
@@ -80,13 +130,18 @@ struct DropdownWindow : Window {
 	int selected_click_result = -1; ///< Click result value, from the OnClick handler of the selected item.
 	uint8_t click_delay = 0; ///< Timer to delay selection.
 	bool drag_mode = true;
-	bool instant_close = false; ///< Close the window when the mouse button is raised.
-	bool persist = false; ///< Persist dropdown menu.
+	bool above = false; ///< Set if the drop down list is above the drop down widget instead of below.
+	DropDownOptions options; ///< Options for this drop down menu.
 	int scrolling = 0; ///< If non-zero, auto-scroll the item list (one time).
 	Point position{}; ///< Position of the topleft corner of the window.
 	Scrollbar *vscroll = nullptr;
+	std::string * const persistent_filter_text = nullptr; ///< Unmanaged pointer to string for retaining filter text.
 
+	Dimension initial_dim{}; ///< Initial dimension of dropdown menu before filtering.
 	Dimension items_dim{}; ///< Calculated cropped and padded dimension for the items widget.
+
+	mutable StringFilter string_filter{}; ///< String filter for filter text.
+	QueryString editbox; ///< Editbox for filter text.
 
 	/**
 	 * Create a dropdown menu.
@@ -95,18 +150,19 @@ struct DropdownWindow : Window {
 	 * @param selected      Initial selected result of the list.
 	 * @param button        Widget of the parent window doing the dropdown.
 	 * @param wi_rect       Rect of the button that opened the dropdown.
-	 * @param instant_close Close the window when the mouse button is raised.
 	 * @param wi_colour     Colour of the parent widget.
-	 * @param persist       Dropdown menu will persist.
+	 * @param options Drop Down options for this menu.
+	 * @param persistent_filter_text Optional pointer to string for retaining filter text.
 	 */
-	DropdownWindow(Window *parent, DropDownList &&list, int selected, WidgetID button, const Rect wi_rect, bool instant_close, Colours wi_colour, bool persist)
+	DropdownWindow(Window *parent, DropDownList &&list, int selected, WidgetID button, const Rect wi_rect, Colours wi_colour, DropDownOptions options, std::string * const persistent_filter_text)
 			: Window(_dropdown_desc)
 			, parent_button(button)
 			, wi_rect(wi_rect)
 			, list(std::move(list))
 			, selected_result(selected)
-			, instant_close(instant_close)
-			, persist(persist)
+			, options(options)
+			, persistent_filter_text(persistent_filter_text)
+			, editbox(60 * MAX_CHAR_LENGTH, 60)
 	{
 		assert(!this->list.empty());
 
@@ -114,25 +170,45 @@ struct DropdownWindow : Window {
 
 		this->CreateNestedTree();
 
+		this->GetWidget<NWidgetStacked>(WID_DM_FILTER_SEL)->SetDisplayedPlane(this->options.Test(DropDownOption::Filterable) ? 0 : SZSP_HORIZONTAL);
+		this->GetWidget<NWidgetCore>(WID_DM_FILTER_PANEL)->colour = wi_colour;
+		this->GetWidget<NWidgetCore>(WID_DM_FILTER)->colour = wi_colour;
 		this->GetWidget<NWidgetCore>(WID_DM_ITEMS)->colour = wi_colour;
 		this->GetWidget<NWidgetCore>(WID_DM_SCROLL)->colour = wi_colour;
 		this->vscroll = this->GetScrollbar(WID_DM_SCROLL);
 		this->UpdateSizeAndPosition();
 
+		this->querystrings[WID_DM_FILTER] = &this->editbox;
+
 		this->FinishInitNested(0);
+
+		if (this->options.Test(DropDownOption::Filterable)) {
+			this->SetFocusedWidget(WID_DM_FILTER);
+			if (this->persistent_filter_text != nullptr && !this->persistent_filter_text->empty()) {
+				this->editbox.text.Assign(*this->persistent_filter_text);
+				this->UpdateFilter();
+			}
+		}
+
 		this->flags.Reset(WindowFlag::WhiteBorder);
 	}
 
 	void Close([[maybe_unused]] int data = 0) override
 	{
+		this->UnfocusFocusedWidget();
+
 		/* Finish closing the dropdown, so it doesn't affect new window placement.
 		 * Also mark it dirty in case the callback deals with the screen. (e.g. screenshots). */
 		this->Window::Close();
 
+		if (this->persistent_filter_text != nullptr) {
+			*this->persistent_filter_text = this->editbox.text.GetText();
+		}
+
 		Point pt = _cursor.pos;
 		pt.x -= this->parent->left;
 		pt.y -= this->parent->top;
-		this->parent->OnDropdownClose(pt, this->parent_button, this->selected_result, this->selected_click_result, this->instant_close);
+		this->parent->OnDropdownClose(pt, this->parent_button, this->selected_result, this->selected_click_result, this->options.Test(DropDownOption::InstantClose));
 
 		/* Set flag on parent widget to indicate that we have just closed. */
 		NWidgetCore *nwc = this->parent->GetWidget<NWidgetCore>(this->parent_button);
@@ -142,9 +218,21 @@ struct DropdownWindow : Window {
 	void OnFocusLost(bool closing) override
 	{
 		if (!closing) {
-			this->instant_close = false;
+			this->options.Reset(DropDownOption::InstantClose);
 			this->Close();
 		}
+	}
+
+	/**
+	 * Get height of filter edit panel.
+	 * @return Height of filter edit panel, or zero if not filtering.
+	 */
+	uint GetFilterBoxHeight() const
+	{
+		if (!this->options.Test(DropDownOption::Filterable)) return 0;
+
+		/* The edit panel widget does not exist yet so we don't know its real size. Calculate it instead. */
+		return GetCharacterHeight(FontSize::Normal) + WidgetDimensions::scaled.fullbevel.Vertical() * 3;
 	}
 
 	/**
@@ -155,6 +243,8 @@ struct DropdownWindow : Window {
 	 */
 	void FitAvailableHeight(Dimension &desired, const Dimension &list, uint available_height)
 	{
+		available_height -= this->GetFilterBoxHeight();
+
 		if (desired.height < available_height) return;
 
 		/* If the dropdown doesn't fully fit, we a need a dropdown. */
@@ -163,6 +253,20 @@ struct DropdownWindow : Window {
 
 		desired.width = std::max(list.width, desired.width - NWidgetScrollbar::GetVerticalDimension().width);
 		desired.height = rows * avg_height + WidgetDimensions::scaled.dropdownlist.Vertical();
+	}
+
+	/**
+	 * Get the height of the dropdown list, excluding filtered items.
+	 * @return Height of visible items in dropdown list.
+	 */
+	uint GetVisibleHeight() const
+	{
+		uint height = 0;
+		for (const auto &item : this->list) {
+			if (!this->FilterByText(*item)) continue;
+			height += item->Height();
+		}
+		return height;
 	}
 
 	/**
@@ -190,10 +294,14 @@ struct DropdownWindow : Window {
 		/* Is it better to place the dropdown above the widget? */
 		if (widget_dim.height > available_height_below && available_height_above > available_height_below) {
 			FitAvailableHeight(widget_dim, list_dim, available_height_above);
-			this->position.y = button_rect.top - widget_dim.height;
+			this->above = true;
+			this->position.y = button_rect.top - widget_dim.height - this->GetFilterBoxHeight();
+			this->GetWidget<NWidgetCore>(WID_DM_FILTER_PANEL)->GetParentWidget<NWidgetVertical>()->bottom_up = true;
 		} else {
 			FitAvailableHeight(widget_dim, list_dim, available_height_below);
+			this->above = false;
 			this->position.y = button_rect.bottom + 1;
+			this->GetWidget<NWidgetCore>(WID_DM_FILTER_PANEL)->GetParentWidget<NWidgetVertical>()->bottom_up = false;
 		}
 
 		if (_current_text_dir == TD_RTL) {
@@ -203,15 +311,17 @@ struct DropdownWindow : Window {
 			this->position.x = button_rect.left;
 		}
 
+		this->initial_dim = widget_dim;
 		this->items_dim = widget_dim;
 		this->GetWidget<NWidgetStacked>(WID_DM_SHOW_SCROLL)->SetDisplayedPlane(list_dim.height > widget_dim.height ? 0 : SZSP_NONE);
 
 		/* Capacity is the average number of items visible */
-		this->vscroll->SetCapacity((widget_dim.height - WidgetDimensions::scaled.dropdownlist.Vertical()) * this->list.size() / list_dim.height);
-		this->vscroll->SetCount(this->list.size());
+		this->vscroll->SetCapacity(widget_dim.height - WidgetDimensions::scaled.dropdownlist.Vertical());
+		this->vscroll->SetStepSize(list_dim.height / this->list.size());
+		this->vscroll->SetCount(this->GetVisibleHeight());
 
 		/* If the dropdown is positioned above the parent widget, start selection at the bottom. */
-		if (this->position.y < button_rect.top && list_dim.height > widget_dim.height) this->vscroll->UpdatePosition(INT_MAX);
+		if (this->above) this->vscroll->SetPosition(INT_MAX);
 	}
 
 	void UpdateWidgetSize(WidgetID widget, Dimension &size, [[maybe_unused]] const Dimension &padding, [[maybe_unused]] Dimension &fill, [[maybe_unused]] Dimension &resize) override
@@ -235,26 +345,43 @@ struct DropdownWindow : Window {
 		if (GetWidgetFromPos(this, _cursor.pos.x - this->left, _cursor.pos.y - this->top) < 0) return false;
 
 		const Rect &r = this->GetWidget<NWidgetBase>(WID_DM_ITEMS)->GetCurrentRect().Shrink(WidgetDimensions::scaled.dropdownlist).Shrink(WidgetDimensions::scaled.dropdowntext, RectPadding::zero);
-		int y     = _cursor.pos.y - this->top - r.top;
-		int pos   = this->vscroll->GetPosition();
+		int click_y = _cursor.pos.y - this->top - r.top;
+		int y = -this->vscroll->GetPosition();
+		int y_end = r.Height();
 
 		for (const auto &item : this->list) {
-			/* Skip items that are scrolled up */
-			if (--pos >= 0) continue;
-
+			if (!this->FilterByText(*item)) continue;
 			int item_height = item->Height();
 
-			if (y < item_height) {
+			/* Skip items that are scrolled up */
+			if (y > y_end) break;
+			if (click_y >= y && click_y < y + item_height) {
 				if (item->masked || !item->Selectable()) return false;
 				result = item->result;
-				click_result = item->OnClick({r.left, 0, r.right, item_height - 1}, {_cursor.pos.x - this->left, y});
+				click_result = item->OnClick(r.WithY(0, item_height - 1), {_cursor.pos.x - this->left, click_y - y});
 				return true;
 			}
-
-			y -= item_height;
+			y += item_height;
 		}
 
 		return false;
+	}
+
+	/**
+	 * Filter individual dropdown item
+	 * @param item Item to filter.
+	 * @return true iff the item should appear in the filtered list.
+	 */
+	bool FilterByText(const DropDownListItem &item) const
+	{
+		/* Do not filter if the filter text box is empty */
+		if (this->string_filter.IsEmpty()) return true;
+
+		/* Filter table name */
+		this->string_filter.ResetState();
+		item.FilterText(this->string_filter);
+
+		return this->string_filter.GetState();
 	}
 
 	void DrawWidget(const Rect &r, WidgetID widget) const override
@@ -264,18 +391,29 @@ struct DropdownWindow : Window {
 		Colours colour = this->GetWidget<NWidgetCore>(widget)->colour;
 
 		Rect ir = r.Shrink(WidgetDimensions::scaled.dropdownlist);
-		int y = ir.top;
-		int pos = this->vscroll->GetPosition();
+		if (ir.Height() == 0) return;
+
+		/* Setup a clipping rectangle... */
+		DrawPixelInfo tmp_dpi;
+		if (!FillDrawPixelInfo(&tmp_dpi, ir)) return;
+		/* ...but keep coordinates relative to the window. */
+		tmp_dpi.left += ir.left;
+		tmp_dpi.top += ir.top;
+		AutoRestoreBackup dpi_backup(_cur_dpi, &tmp_dpi);
+
+		int y = -this->vscroll->GetPosition();
+		int y_end = ir.Height();
+
 		for (const auto &item : this->list) {
+			if (!this->FilterByText(*item)) continue;
 			int item_height = item->Height();
 
 			/* Skip items that are scrolled up */
-			if (--pos >= 0) continue;
+			if (y > y_end) break;
+			if (y > -item_height) {
+				Rect full = ir.Translate(0, y).WithHeight(item_height);
 
-			if (y + item_height - 1 <= ir.bottom) {
-				Rect full{ir.left, y, ir.right, y + item_height - 1};
-
-				bool selected = (this->selected_result == item->result) && item->Selectable();
+				bool selected = (this->selected_result == item->result) && item->Selectable() && this->selected_click_result < 0;
 				if (selected) GfxFillRect(full, PC_BLACK);
 
 				item->Draw(full, full.Shrink(WidgetDimensions::scaled.dropdowntext, RectPadding::zero), selected, selected ? this->selected_click_result : -1, colour);
@@ -310,7 +448,7 @@ struct DropdownWindow : Window {
 		if (this->click_delay != 0 && --this->click_delay == 0) {
 			/* Close the dropdown, so it doesn't affect new window placement.
 			 * Also mark it dirty in case the callback deals with the screen. (e.g. screenshots). */
-			if (!this->persist) this->Close();
+			if (!this->options.Test(DropDownOption::Persist)) this->Close();
 			this->parent->OnDropdownSelect(this->parent_button, this->selected_result, this->selected_click_result);
 			return;
 		}
@@ -321,7 +459,7 @@ struct DropdownWindow : Window {
 			if (!_left_button_clicked) {
 				this->drag_mode = false;
 				if (!this->GetDropDownItem(result, click_result)) {
-					if (this->instant_close) this->Close();
+					if (this->options.Test(DropDownOption::InstantClose)) this->Close();
 					return;
 				}
 				this->click_delay = 2;
@@ -352,16 +490,52 @@ struct DropdownWindow : Window {
 		this->list = std::move(list);
 		if (selected_result.has_value()) this->selected_result = *selected_result;
 		this->UpdateSizeAndPosition();
-		this->ReInit(0, 0);
+		this->ReInit();
 		this->InitializePositionSize(this->position.x, this->position.y, this->nested_root->smallest_x, this->nested_root->smallest_y);
 		this->FindWindowPlacementAndResize(this->window_desc.GetDefaultWidth(), this->window_desc.GetDefaultHeight(), true);
 		this->SetDirty();
+	}
+
+	void OnResize() override
+	{
+		this->vscroll->SetCapacity(this->items_dim.height - WidgetDimensions::scaled.dropdownlist.Vertical());
+	}
+
+	/**
+	 * Apply text filter to the items in the dropdown list, resizing the window as necessary.
+	 */
+	void UpdateFilter()
+	{
+		this->string_filter.SetFilterTerm(this->editbox.text.GetText());
+
+		uint height = this->GetVisibleHeight();
+		uint old_height = this->items_dim.height;
+		this->items_dim.height = std::min(this->initial_dim.height, height + WidgetDimensions::scaled.dropdownlist.Vertical());
+		this->vscroll->SetCount(height);
+
+		if (old_height != this->items_dim.height) {
+			this->ReInit();
+			if (this->above) {
+				/* Drop down list needs to be moved to near the parent drop down button. */
+				Rect button_rect = this->wi_rect.Translate(this->parent->left, this->parent->top);
+				this->top = button_rect.top - this->items_dim.height - this->GetFilterBoxHeight();
+				this->SetDirty();
+			}
+		} else {
+			this->SetDirty();
+		}
+	}
+
+	void OnEditboxChanged(WidgetID wid) override
+	{
+		if (wid != WID_DM_FILTER) return;
+		this->UpdateFilter();
 	}
 };
 
 void ReplaceDropDownList(Window *parent, DropDownList &&list, std::optional<int> selected_result)
 {
-	DropdownWindow *ddw = dynamic_cast<DropdownWindow *>(parent->FindChildWindow(WC_DROPDOWN_MENU));
+	DropdownWindow *ddw = dynamic_cast<DropdownWindow *>(parent->FindChildWindow(WindowClass::DropdownMenu));
 	if (ddw != nullptr) ddw->ReplaceList(std::move(list), selected_result);
 }
 
@@ -389,14 +563,14 @@ Dimension GetDropDownListDimension(const DropDownList &list)
  * @param button   The widget which is passed to Window::OnDropdownSelect and OnDropdownClose.
  *                 Unless you override those functions, this should be then widget index of the dropdown button.
  * @param wi_rect  Coord of the parent drop down button, used to position the dropdown menu.
- * @param instant_close Set to true if releasing mouse button should close the
- *                      list regardless of where the cursor is.
- * @param persist  Set if this dropdown should stay open after an option is selected.
+ * @param wi_colour Colour of the parent widget.
+ * @param options Drop Down options for this menu.
+ * @param persistent_filter_text Optional pointer to string for retaining filter text.
  */
-void ShowDropDownListAt(Window *w, DropDownList &&list, int selected, WidgetID button, Rect wi_rect, Colours wi_colour, bool instant_close, bool persist)
+void ShowDropDownListAt(Window *w, DropDownList &&list, int selected, WidgetID button, Rect wi_rect, Colours wi_colour, DropDownOptions options, std::string * const persistent_filter_text)
 {
-	CloseWindowByClass(WC_DROPDOWN_MENU);
-	new DropdownWindow(w, std::move(list), selected, button, wi_rect, instant_close, wi_colour, persist);
+	CloseWindowByClass(WindowClass::DropdownMenu);
+	new DropdownWindow(w, std::move(list), selected, button, wi_rect, wi_colour, options, persistent_filter_text);
 }
 
 /**
@@ -407,12 +581,14 @@ void ShowDropDownListAt(Window *w, DropDownList &&list, int selected, WidgetID b
  * @param button   The widget within the parent window that is used to determine
  *                 the list's location.
  * @param width    Override the minimum width determined by the selected widget and list contents.
- * @param instant_close Set to true if releasing mouse button should close the
- *                      list regardless of where the cursor is.
- * @param persist  Set if this dropdown should stay open after an option is selected.
+ * @param options Drop Down options for this menu.
+ * @param persistent_filter_text Optional pointer to string for retaining filter text.
  */
-void ShowDropDownList(Window *w, DropDownList &&list, int selected, WidgetID button, uint width, bool instant_close, bool persist)
+void ShowDropDownList(Window *w, DropDownList &&list, int selected, WidgetID button, uint width, DropDownOptions options, std::string * const persistent_filter_text)
 {
+	/* Handle the beep of the player's click. */
+	SndClickBeep();
+
 	/* Our parent's button widget is used to determine where to place the drop
 	 * down list window. */
 	NWidgetCore *nwi = w->GetWidget<NWidgetCore>(button);
@@ -434,7 +610,7 @@ void ShowDropDownList(Window *w, DropDownList &&list, int selected, WidgetID but
 		}
 	}
 
-	ShowDropDownListAt(w, std::move(list), selected, button, wi_rect, wi_colour, instant_close, persist);
+	ShowDropDownListAt(w, std::move(list), selected, button, wi_rect, wi_colour, options, persistent_filter_text);
 }
 
 /**
@@ -447,8 +623,10 @@ void ShowDropDownList(Window *w, DropDownList &&list, int selected, WidgetID but
  * @param disabled_mask Bitmask for disabled items (items with their bit set are displayed, but not selectable in the dropdown list).
  * @param hidden_mask   Bitmask for hidden items (items with their bit set are not copied to the dropdown list).
  * @param width         Minimum width of the dropdown menu.
+ * @param options Drop Down options for this menu
+ * @param persistent_filter_text Optional pointer to string for retaining filter text.
  */
-void ShowDropDownMenu(Window *w, std::span<const StringID> strings, int selected, WidgetID button, uint32_t disabled_mask, uint32_t hidden_mask, uint width)
+void ShowDropDownMenu(Window *w, std::span<const StringID> strings, int selected, WidgetID button, uint32_t disabled_mask, uint32_t hidden_mask, uint width, DropDownOptions options, std::string * const persistent_filter_text)
 {
 	DropDownList list;
 
@@ -460,5 +638,5 @@ void ShowDropDownMenu(Window *w, std::span<const StringID> strings, int selected
 		++i;
 	}
 
-	if (!list.empty()) ShowDropDownList(w, std::move(list), selected, button, width);
+	if (!list.empty()) ShowDropDownList(w, std::move(list), selected, button, width, options, persistent_filter_text);
 }

@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file dedicated_v.cpp Dedicated server video 'driver'. */
@@ -19,8 +19,7 @@
 #include "../fios.h"
 #include "../blitter/factory.hpp"
 #include "../company_func.h"
-#include "../core/random_func.hpp"
-#include "../saveload/saveload.h"
+#include "../saveload/saveload_func.h"
 #include "../thread.h"
 #include "../window_func.h"
 #include <iostream>
@@ -33,11 +32,13 @@
 #	include <signal.h>
 #	define STDIN 0  /* file descriptor for standard input */
 
+/** Dedicated exit requested. */
+std::atomic<bool> _dedicated_exit_requested;
+
 /* Signal handlers */
 static void DedicatedSignalHandler(int sig)
 {
-	if (_game_mode == GM_NORMAL && _settings_client.gui.autosave_on_exit) DoExitSave();
-	_exit_game = true;
+	_dedicated_exit_requested = true;
 	signal(sig, DedicatedSignalHandler);
 }
 #endif
@@ -95,7 +96,7 @@ static void CloseWindowsConsoleThread()
 
 static std::unique_ptr<uint8_t[]> _dedicated_video_mem;
 
-/* Whether a fork has been done. */
+/** Whether a fork has been done. */
 bool _dedicated_forks;
 
 extern bool SafeLoad(const std::string &filename, SaveLoadOperation fop, DetailedFileType dft, GameMode newgm, Subdirectory subdir, struct LoadFilter *lf = nullptr);
@@ -206,8 +207,8 @@ void VideoDriver_Dedicated::MainLoop()
 	_network_dedicated = true;
 	_current_company = _local_company = COMPANY_SPECTATOR;
 
-	/* If SwitchMode is SM_LOAD_GAME / SM_START_HEIGHTMAP, it means that the user used the '-g' options */
-	if (_switch_mode != SM_LOAD_GAME && _switch_mode != SM_START_HEIGHTMAP) {
+	/* If SwitchMode is SwitchMode::LoadGame / SwitchMode::StartHeightmap, it means that the user used the '-g' options */
+	if (_switch_mode != SwitchMode::LoadGame && _switch_mode != SwitchMode::StartHeightmap) {
 		StartNewGameWithoutGUI(GENERATE_NEW_SEED);
 	}
 
@@ -221,5 +222,12 @@ void VideoDriver_Dedicated::MainLoop()
 
 		this->Tick();
 		this->SleepTillNextTick();
+
+#if defined(UNIX)
+		if (_dedicated_exit_requested) {
+			if (_game_mode == GameMode::Normal && _settings_client.gui.autosave_on_exit) DoExitSave();
+			_exit_game = true;
+		}
+#endif
 	}
 }

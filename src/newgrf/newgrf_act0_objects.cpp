@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file newgrf_act0_objects.cpp NewGRF Action 0x00 handler for objects. */
@@ -24,7 +24,7 @@
  */
 static ChangeInfoResult IgnoreObjectProperty(uint prop, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	switch (prop) {
 		case 0x0B:
@@ -58,7 +58,7 @@ static ChangeInfoResult IgnoreObjectProperty(uint prop, ByteReader &buf)
 			break;
 
 		default:
-			ret = CIR_UNKNOWN;
+			ret = ChangeInfoResult::Unknown;
 			break;
 	}
 
@@ -75,11 +75,11 @@ static ChangeInfoResult IgnoreObjectProperty(uint prop, ByteReader &buf)
  */
 static ChangeInfoResult ObjectChangeInfo(uint first, uint last, int prop, ByteReader &buf)
 {
-	ChangeInfoResult ret = CIR_SUCCESS;
+	ChangeInfoResult ret = ChangeInfoResult::Success;
 
 	if (last > NUM_OBJECTS_PER_GRF) {
 		GrfMsg(1, "ObjectChangeInfo: Too many objects loaded ({}), max ({}). Ignoring.", last, NUM_OBJECTS_PER_GRF);
-		return CIR_INVALID_ID;
+		return ChangeInfoResult::InvalidId;
 	}
 
 	/* Allocate object specs if they haven't been allocated already. */
@@ -96,7 +96,7 @@ static ChangeInfoResult ObjectChangeInfo(uint first, uint last, int prop, ByteRe
 		}
 
 		switch (prop) {
-			case 0x08: { // Class ID
+			case 0x08: // Class ID
 				/* Allocate space for this object. */
 				if (spec == nullptr) {
 					spec = std::make_unique<ObjectSpec>();
@@ -104,16 +104,12 @@ static ChangeInfoResult ObjectChangeInfo(uint first, uint last, int prop, ByteRe
 					spec->size = OBJECT_SIZE_1X1; // Default for NewGRFs that manage to not set it (1x1)
 				}
 
-				/* Swap classid because we read it in BE. */
-				uint32_t classid = buf.ReadDWord();
-				spec->class_index = ObjectClass::Allocate(std::byteswap(classid));
+				spec->class_index = ObjectClass::Allocate(buf.ReadLabel<ObjectClass::GlobalID>());
 				break;
-			}
 
-			case 0x09: { // Class name
+			case 0x09: // Class name
 				AddStringForMapping(GRFStringID{buf.ReadWord()}, [spec = spec.get()](StringID str) { ObjectClass::Get(spec->class_index)->name = str; });
 				break;
-			}
 
 			case 0x0A: // Object name
 				AddStringForMapping(GRFStringID{buf.ReadWord()}, &spec->name);
@@ -187,11 +183,11 @@ static ChangeInfoResult ObjectChangeInfo(uint first, uint last, int prop, ByteRe
 				break;
 
 			case 0x19: // Badge list
-				spec->badges = ReadBadgeList(buf, GSF_OBJECTS);
+				spec->badges = ReadBadgeList(buf, GrfSpecFeature::Objects);
 				break;
 
 			default:
-				ret = CIR_UNKNOWN;
+				ret = ChangeInfoResult::Unknown;
 				break;
 		}
 	}
@@ -199,5 +195,7 @@ static ChangeInfoResult ObjectChangeInfo(uint first, uint last, int prop, ByteRe
 	return ret;
 }
 
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_OBJECTS>::Reserve(uint, uint, int, ByteReader &) { return CIR_UNHANDLED; }
-template <> ChangeInfoResult GrfChangeInfoHandler<GSF_OBJECTS>::Activation(uint first, uint last, int prop, ByteReader &buf) { return ObjectChangeInfo(first, last, prop, buf); }
+/** @copybrief GrfChangeInfoHandler::Reserve @return Always ChangeInfoResult::Unhandled. */
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Objects>::Reserve(uint, uint, int, ByteReader &) { return ChangeInfoResult::Unhandled; }
+/** @copydoc GrfChangeInfoHandler::Activation */
+template <> ChangeInfoResult GrfChangeInfoHandler<GrfSpecFeature::Objects>::Activation(uint first, uint last, int prop, ByteReader &buf) { return ObjectChangeInfo(first, last, prop, buf); }

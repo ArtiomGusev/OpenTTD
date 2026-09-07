@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /* This file contains code to downgrade the API from 15 to 14. */
@@ -81,3 +81,11 @@ GSTown.FoundTown <- function(tile, size, city, layout, name) { return GSTown.Fou
 
 GSVehicle.SetNameCompat14 <- GSVehicle.SetName;
 GSVehicle.SetName <- function(id, name) { return GSVehicle.SetNameCompat14(id, GSCompat14.Text(name)); }
+
+GSObject.constructorCompat14 <- GSObject.constructor;
+foreach(name, object in CompatScriptRootTable) {
+	if (type(object) != "class") continue;
+	if (!object.rawin("constructor")) continue;
+	if (object.constructor != GSObject.constructorCompat14) continue;
+	object.constructor <- function() : (name) { GSLog.Error("'" + name + "' is not instantiable"); }
+}

@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file cargopacket.h Base class for cargo packets. */
@@ -18,7 +18,7 @@
 #include "source_type.h"
 #include "vehicle_type.h"
 #include "core/multimap.hpp"
-#include "saveload/saveload.h"
+#include "saveload/saveload_type.h"
 
 /** Unique identifier for a single cargo packet. */
 using CargoPacketID = PoolID<uint32_t, struct CargoPacketIDTag, 0xFFF000, 0xFFFFFF>;
@@ -40,19 +40,13 @@ extern SaveLoadTable GetCargoPacketDesc();
  */
 struct CargoPacket : CargoPacketPool::PoolItem<&_cargopacket_pool> {
 private:
-	/* A mathematical vector from (0,0). */
-	struct Vector {
-		int16_t x;
-		int16_t y;
-	};
-
 	uint16_t count = 0; ///< The amount of cargo in this packet.
 	uint16_t periods_in_transit = 0; ///< Amount of cargo aging periods this packet has been in transit.
 
 	Money feeder_share = 0; ///< Value of feeder pickup to be paid for on delivery of cargo.
 
 	TileIndex source_xy = INVALID_TILE; ///< The origin of the cargo.
-	Vector travelled{0, 0}; ///< If cargo is in station: the vector from the unload tile to the source tile. If in vehicle: an intermediate value.
+	Coord2D<int16_t> travelled{0, 0}; ///< If cargo is in station: the vector from the unload tile to the source tile. If in vehicle: an intermediate value.
 
 	Source source{Source::Invalid, SourceType::Industry}; ///< Source of the cargo
 
@@ -73,10 +67,10 @@ public:
 	/** Maximum number of items in a single cargo packet. */
 	static const uint16_t MAX_COUNT = UINT16_MAX;
 
-	CargoPacket();
-	CargoPacket(StationID first_station, uint16_t count, Source source);
-	CargoPacket(uint16_t count, uint16_t periods_in_transit, StationID first_station, TileIndex source_xy, Money feeder_share);
-	CargoPacket(uint16_t count, Money feeder_share, CargoPacket &original);
+	CargoPacket(CargoPacketID index);
+	CargoPacket(CargoPacketID index, StationID first_station, uint16_t count, Source source);
+	CargoPacket(CargoPacketID index, uint16_t count, uint16_t periods_in_transit, StationID first_station, TileIndex source_xy, Money feeder_share);
+	CargoPacket(CargoPacketID index, uint16_t count, Money feeder_share, CargoPacket &original);
 
 	/** Destroy the packet. */
 	~CargoPacket() { }
@@ -283,14 +277,12 @@ public:
 	typedef typename Tcont::const_reverse_iterator ConstReverseIterator;
 
 	/** Kind of actions that could be done with packets on move. */
-	enum MoveToAction : uint8_t {
-		MTA_BEGIN = 0,
-		MTA_TRANSFER = 0, ///< Transfer the cargo to the station.
-		MTA_DELIVER,      ///< Deliver the cargo to some town or industry.
-		MTA_KEEP,         ///< Keep the cargo in the vehicle.
-		MTA_LOAD,         ///< Load the cargo from the station.
-		MTA_END,
-		NUM_MOVE_TO_ACTION = MTA_END
+	enum class MoveToAction : uint8_t {
+		Transfer, ///< Transfer the cargo to the station.
+		Deliver, ///< Deliver the cargo to some town or industry.
+		Keep, ///< Keep the cargo in the vehicle.
+		Load, ///< Load the cargo from the station.
+		End, ///< End marker.
 	};
 
 protected:
@@ -344,8 +336,8 @@ protected:
 	/** The (direct) parent of this class. */
 	typedef CargoList<VehicleCargoList, CargoPacketList> Parent;
 
-	Money feeder_share;                     ///< Cache for the feeder share.
-	uint action_counts[NUM_MOVE_TO_ACTION]; ///< Counts of cargo to be transferred, delivered, kept and loaded.
+	Money feeder_share; ///< Cache for the feeder share.
+	EnumIndexArray<uint, MoveToAction, MoveToAction::End> action_counts{}; ///< Counts of cargo to be transferred, delivered, kept and loaded.
 
 	template <class Taction>
 	void ShiftCargo(Taction action);
@@ -358,10 +350,10 @@ protected:
 	 */
 	inline void AssertCountConsistency() const
 	{
-		assert(this->action_counts[MTA_KEEP] +
-				this->action_counts[MTA_DELIVER] +
-				this->action_counts[MTA_TRANSFER] +
-				this->action_counts[MTA_LOAD] == this->count);
+		assert(this->action_counts[MoveToAction::Keep] +
+				this->action_counts[MoveToAction::Deliver] +
+				this->action_counts[MoveToAction::Transfer] +
+				this->action_counts[MoveToAction::Load] == this->count);
 	}
 
 	void AddToCache(const CargoPacket *cp);
@@ -371,7 +363,7 @@ protected:
 	void RemoveFromMeta(const CargoPacket *cp, MoveToAction action, uint count);
 
 	static MoveToAction ChooseAction(const CargoPacket *cp, StationID cargo_next,
-			StationID current_station, bool accepted, StationIDStack next_station);
+			StationID current_station, bool accepted, std::span<const StationID> next_station);
 
 public:
 	/** The station cargo list needs to control the unloading. */
@@ -424,7 +416,7 @@ public:
 	 */
 	inline uint StoredCount() const
 	{
-		return this->count - this->action_counts[MTA_LOAD];
+		return this->count - this->action_counts[MoveToAction::Load];
 	}
 
 	/**
@@ -442,7 +434,7 @@ public:
 	 */
 	inline uint ReservedCount() const
 	{
-		return this->action_counts[MTA_LOAD];
+		return this->action_counts[MoveToAction::Load];
 	}
 
 	/**
@@ -451,7 +443,7 @@ public:
 	 */
 	inline uint UnloadCount() const
 	{
-		return this->action_counts[MTA_TRANSFER] + this->action_counts[MTA_DELIVER];
+		return this->action_counts[MoveToAction::Transfer] + this->action_counts[MoveToAction::Deliver];
 	}
 
 	/**
@@ -460,16 +452,16 @@ public:
 	 */
 	inline uint RemainingCount() const
 	{
-		return this->action_counts[MTA_KEEP] + this->action_counts[MTA_LOAD];
+		return this->action_counts[MoveToAction::Keep] + this->action_counts[MoveToAction::Load];
 	}
 
-	void Append(CargoPacket *cp, MoveToAction action = MTA_KEEP);
+	void Append(CargoPacket *cp, MoveToAction action = MoveToAction::Keep);
 
 	void AgeCargo();
 
 	void InvalidateCache();
 
-	bool Stage(bool accepted, StationID current_station, StationIDStack next_station, uint8_t order_flags, const GoodsEntry *ge, CargoType cargo, CargoPayment *payment, TileIndex current_tile);
+	bool Stage(bool accepted, StationID current_station, std::span<const StationID> next_station, OrderUnloadType unload_type, const GoodsEntry *ge, CargoType cargo, CargoPayment *payment, TileIndex current_tile);
 
 	/**
 	 * Marks all cargo in the vehicle as to be kept. This is mostly useful for
@@ -478,8 +470,10 @@ public:
 	 */
 	inline void KeepAll()
 	{
-		this->action_counts[MTA_DELIVER] = this->action_counts[MTA_TRANSFER] = this->action_counts[MTA_LOAD] = 0;
-		this->action_counts[MTA_KEEP] = this->count;
+		this->action_counts[MoveToAction::Deliver] = 0;
+		this->action_counts[MoveToAction::Transfer] = 0;
+		this->action_counts[MoveToAction::Load] = 0;
+		this->action_counts[MoveToAction::Keep] = this->count;
 	}
 
 	/* Methods for moving cargo around. First parameter is always maximum
@@ -543,7 +537,7 @@ public:
 	bool ShiftCargo(Taction &action, StationID next);
 
 	template <class Taction>
-	uint ShiftCargo(Taction action, StationIDStack next, bool include_invalid);
+	uint ShiftCargo(Taction action, std::span<const StationID> next, bool include_invalid);
 
 	void Append(CargoPacket *cp, StationID next);
 
@@ -552,10 +546,10 @@ public:
 	 * @param next Station the cargo is headed for.
 	 * @return If there is any cargo for that station.
 	 */
-	inline bool HasCargoFor(StationIDStack next) const
+	inline bool HasCargoFor(std::span<const StationID> next) const
 	{
-		while (!next.IsEmpty()) {
-			if (this->packets.find(StationID{next.Pop()}) != this->packets.end()) return true;
+		for (const StationID &station : next) {
+			if (this->packets.find(station) != this->packets.end()) return true;
 		}
 		/* Packets for StationID::Invalid() can go anywhere. */
 		return this->packets.find(StationID::Invalid()) != this->packets.end();
@@ -571,7 +565,7 @@ public:
 	}
 
 	/**
-	 * Returns sum of cargo still available for loading at the sation.
+	 * Returns sum of cargo still available for loading at the station.
 	 * (i.e. not counting cargo which is already reserved for loading)
 	 * @return Cargo on board the vehicle.
 	 */
@@ -603,8 +597,8 @@ public:
 	 * amount of cargo to be moved. Second parameter is destination (if
 	 * applicable), return value is amount of cargo actually moved. */
 
-	uint Reserve(uint max_move, VehicleCargoList *dest, StationIDStack next, TileIndex current_tile);
-	uint Load(uint max_move, VehicleCargoList *dest, StationIDStack next, TileIndex current_tile);
+	uint Reserve(uint max_move, VehicleCargoList *dest, std::span<const StationID> next, TileIndex current_tile);
+	uint Load(uint max_move, VehicleCargoList *dest, std::span<const StationID> next, TileIndex current_tile);
 	uint Truncate(uint max_move = UINT_MAX, StationCargoAmountMap *cargo_per_source = nullptr);
 	uint Reroute(uint max_move, StationCargoList *dest, StationID avoid, StationID avoid2, const GoodsEntry *ge);
 

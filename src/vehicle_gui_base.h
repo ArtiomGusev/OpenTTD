@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file vehicle_gui_base.h Functions/classes shared between the different vehicle list GUIs. */
@@ -97,7 +97,7 @@ struct BaseVehicleListWindow : public Window {
 		ADI_CREATE_GROUP,
 	};
 
-	static const StringID vehicle_depot_name[];
+	static const VehicleTypeIndexArray<const StringID> vehicle_depot_name;
 	static const std::initializer_list<const StringID> vehicle_group_by_names;
 	static const std::initializer_list<const StringID> vehicle_group_none_sorter_names_calendar;
 	static const std::initializer_list<const StringID> vehicle_group_none_sorter_names_wallclock;
@@ -116,7 +116,7 @@ struct BaseVehicleListWindow : public Window {
 	void UpdateVehicleGroupBy(GroupBy group_by);
 	void SortVehicleList();
 	void BuildVehicleList();
-	void SetCargoFilter(uint8_t index);
+	void SetCargoFilter(CargoType cargo_type);
 	void SetCargoFilterArray();
 	void FilterVehicleList();
 	StringID GetCargoFilterLabel(CargoType cargo_type) const;

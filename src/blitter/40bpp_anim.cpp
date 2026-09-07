@@ -2,10 +2,10 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file 40bpp_optimized.cpp Implementation of the optimized 40 bpp blitter. */
+/** @file 40bpp_anim.cpp Implementation of the animated 40 bpp blitter. */
 
 #include "../stdafx.h"
 #include "../zoom_func.h"
@@ -24,10 +24,10 @@
 static FBlitter_40bppAnim iFBlitter_40bppAnim;
 
 /** Cached black value. */
-static const Colour _black_colour(0, 0, 0);
+static const Colour _black_colour{0, 0, 0};
 
 
-void Blitter_40bppAnim::SetPixel(void *video, int x, int y, uint8_t colour)
+void Blitter_40bppAnim::SetPixel(void *video, int x, int y, PixelColour colour)
 {
 	if (_screen_disable_anim) {
 		Blitter_32bppOptimized::SetPixel(video, x, y, colour);
@@ -35,11 +35,11 @@ void Blitter_40bppAnim::SetPixel(void *video, int x, int y, uint8_t colour)
 		size_t y_offset = static_cast<size_t>(y) * _screen.pitch;
 		*((Colour *)video + x + y_offset) = _black_colour;
 
-		VideoDriver::GetInstance()->GetAnimBuffer()[((uint32_t *)video - (uint32_t *)_screen.dst_ptr) + x + y_offset] = colour;
+		VideoDriver::GetInstance()->GetAnimBuffer()[((uint32_t *)video - (uint32_t *)_screen.dst_ptr) + x + y_offset] = colour.p;
 	}
 }
 
-void Blitter_40bppAnim::DrawRect(void *video, int width, int height, uint8_t colour)
+void Blitter_40bppAnim::DrawRect(void *video, int width, int height, PixelColour colour)
 {
 	if (_screen_disable_anim) {
 		/* This means our output is not to the screen, so we can't be doing any animation stuff, so use our parent DrawRect() */
@@ -56,7 +56,7 @@ void Blitter_40bppAnim::DrawRect(void *video, int width, int height, uint8_t col
 
 		for (int i = width; i > 0; i--) {
 			*dst = _black_colour;
-			*anim = colour;
+			*anim = colour.p;
 			dst++;
 			anim++;
 		}
@@ -65,7 +65,7 @@ void Blitter_40bppAnim::DrawRect(void *video, int width, int height, uint8_t col
 	} while (--height);
 }
 
-void Blitter_40bppAnim::DrawLine(void *video, int x, int y, int x2, int y2, int screen_width, int screen_height, uint8_t colour, int width, int dash)
+void Blitter_40bppAnim::DrawLine(void *video, int x, int y, int x2, int y2, int screen_width, int screen_height, PixelColour colour, int width, int dash)
 {
 	if (_screen_disable_anim) {
 		/* This means our output is not to the screen, so we can't be doing any animation stuff, so use our parent DrawRect() */
@@ -78,7 +78,7 @@ void Blitter_40bppAnim::DrawLine(void *video, int x, int y, int x2, int y2, int 
 
 	this->DrawLineGeneric(x, y, x2, y2, screen_width, screen_height, width, dash, [=](int x, int y) {
 		*((Colour *)video + x + y * _screen.pitch) = _black_colour;
-		*(anim + x + y * _screen.pitch) = colour;
+		*(anim + x + y * _screen.pitch) = colour.p;
 	});
 }
 
@@ -240,9 +240,9 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 					if (src_px->a == 255) {
 						src_px += n;
 						do {
-							/* If the anim buffer contains a color value, the image composition will
+							/* If the anim buffer contains a colour value, the image composition will
 							 * only look at the RGB brightness value. As such, we can simply darken the
-							 * RGB value to darken the anim color. */
+							 * RGB value to darken the anim colour. */
 							Colour b = *anim != 0 ? Colour(GetColourBrightness(*dst), 0, 0) : *dst;
 							*dst = this->MakeTransparent(b, 3, 4);
 							anim++;
@@ -360,9 +360,9 @@ void Blitter_40bppAnim::DrawColourMappingRect(void *dst, int width, int height, 
 	uint8_t *anim = VideoDriver::GetInstance()->GetAnimBuffer() + ((uint32_t *)dst - (uint32_t *)_screen.dst_ptr);
 
 	if (pal == PALETTE_TO_TRANSPARENT) {
-		/* If the anim buffer contains a color value, the image composition will
+		/* If the anim buffer contains a colour value, the image composition will
 		 * only look at the RGB brightness value. As such, we can simply darken the
-		 * RGB value to darken the anim color. */
+		 * RGB value to darken the anim colour. */
 		do {
 			for (int i = 0; i != width; i++) {
 				Colour b = *anim != 0 ? Colour(GetColourBrightness(*udst), 0, 0) : *udst;

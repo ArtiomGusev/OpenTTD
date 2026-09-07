@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file script_object.hpp Main object, on which all objects depend. */
@@ -44,10 +44,14 @@ typedef bool (ScriptAsyncModeProc)();
 class SimpleCountedObject {
 public:
 	SimpleCountedObject() : ref_count(0) {}
+	/** Ensure the destructor of the sub classes are called as well. */
 	virtual ~SimpleCountedObject() = default;
 
+	/** Increase the reference count by one. */
 	inline void AddRef() { ++this->ref_count; }
+	/** Decrease the reference count by one. Once zero call FinaleRelease and then destruct the object. */
 	void Release();
+	/** Called during Release, so the object can throw exceptions (you cannot in destructors). */
 	virtual void FinalRelease() {};
 
 private:
@@ -55,7 +59,7 @@ private:
 };
 
 /**
- * Uper-parent object of all API classes. You should never use this class in
+ * Upper-parent object of all API classes. You should never use this class in
  *   your script, as it doesn't publish any public functions. It is used
  *   internally to have a common place to handle general things, like internal
  *   command processing, and command-validation checks.
@@ -84,6 +88,11 @@ protected:
 		static ScriptInstance *active;  ///< The global current active instance.
 	};
 
+	class DisableDoCommandScope : public AutoRestoreBackup<bool> {
+	public:
+		DisableDoCommandScope();
+	};
+
 	/**
 	 * Save this object.
 	 * Must push 2 elements on the stack:
@@ -91,7 +100,7 @@ protected:
 	 *  - the data for the object (any supported types)
 	 * @return True iff saving this type is supported.
 	 */
-	virtual bool SaveObject(HSQUIRRELVM) { return false; }
+	virtual bool SaveObject(HSQUIRRELVM) const { return false; }
 
 	/**
 	 * Load this object.
@@ -99,6 +108,12 @@ protected:
 	 * @return True iff loading this type is supported.
 	 */
 	virtual bool LoadObject(HSQUIRRELVM) { return false; }
+
+	/**
+	 * Clone an object.
+	 * @return The clone if cloning this type is supported, nullptr otherwise.
+	 */
+	virtual ScriptObject *CloneObject() const { return nullptr; }
 
 public:
 	/**
@@ -130,6 +145,16 @@ public:
 	 * based on the current _random seed, but _random does not get changed.
 	 */
 	static void InitializeRandomizers();
+
+	/**
+	 * Used when trying to instantiate ScriptObject from squirrel.
+	 */
+	static SQInteger Constructor(HSQUIRRELVM);
+
+	/**
+	 * Used for 'clone' from squirrel.
+	 */
+	static SQInteger _cloned(HSQUIRRELVM);
 
 protected:
 	template <Commands TCmd, typename T> struct ScriptDoCommandHelper;
@@ -266,21 +291,6 @@ protected:
 	static const CommandDataBuffer &GetLastCommandResData();
 
 	/**
-	 * Store a allow_do_command per company.
-	 * @param allow The new allow.
-	 */
-	static void SetAllowDoCommand(bool allow);
-
-	/**
-	 * Get the internal value of allow_do_command. This can differ
-	 * from CanSuspend() if the reason we are not allowed
-	 * to execute a DoCommand is in squirrel and not the API.
-	 * In that case use this function to restore the previous value.
-	 * @return True iff DoCommands are allowed in the current scope.
-	 */
-	static bool GetAllowDoCommand();
-
-	/**
 	 * Set the current company to execute commands for or request
 	 *  information about.
 	 * @param company The new company.
@@ -341,12 +351,15 @@ private:
 	static std::tuple<bool, bool, bool, bool> DoCommandPrep();
 	static bool DoCommandProcessResult(const CommandCost &res, Script_SuspendCallbackProc *callback, bool estimate_only, bool asynchronous);
 	static CommandCallbackData *GetDoCommandCallback();
-	using RandomizerArray = ReferenceThroughBaseContainer<std::array<Randomizer, OWNER_END.base()>>;
+	using RandomizerArray = TypedIndexContainer<std::array<Randomizer, OWNER_END.base()>, Owner>;
 	static RandomizerArray random_states; ///< Random states for each of the scripts (game script uses OWNER_DEITY)
 };
 
 namespace ScriptObjectInternal {
-	/** Validate a single string argument coming from network. */
+	/**
+	 * Validate a single string argument coming from a script.
+	 * @param data The data to validate.
+	 */
 	template <class T>
 	static inline void SanitizeSingleStringHelper(T &data)
 	{
@@ -357,23 +370,32 @@ namespace ScriptObjectInternal {
 		}
 	}
 
-	/** Helper function to perform validation on command data strings. */
+	/**
+	 * Helper function to perform validation on command data strings.
+	 * @param values The data to validate.
+	 */
 	template <class Ttuple, size_t... Tindices>
 	static inline void SanitizeStringsHelper(Ttuple &values, std::index_sequence<Tindices...>)
 	{
 		((SanitizeSingleStringHelper(std::get<Tindices>(values))), ...);
 	}
 
-	/** Helper to process a single ClientID argument. */
+	/**
+	 * Helper to process a single ClientID argument.
+	 * @param data The data to process.
+	 */
 	template <class T>
 	static inline void SetClientIdHelper(T &data)
 	{
 		if constexpr (std::is_same_v<ClientID, T>) {
-			if (data == INVALID_CLIENT_ID) data = (ClientID)UINT32_MAX;
+			if (data == ClientID::Invalid) data = static_cast<ClientID>(UINT32_MAX);
 		}
 	}
 
-	/** Set all invalid ClientID's to the proper value. */
+	/**
+	 * Set all invalid ClientIDs to the proper value.
+	 * @param values The values to go through.
+	 */
 	template <class Ttuple, size_t... Tindices>
 	static inline void SetClientIds(Ttuple &values, std::index_sequence<Tindices...>)
 	{
@@ -419,7 +441,7 @@ bool ScriptObject::ScriptDoCommandHelper<Tcmd, Tret(*)(DoCommandFlags, Targs...)
 		return ScriptObject::DoCommandProcessResult(res, callback, estimate_only, asynchronous);
 	} else {
 		ScriptObject::SetLastCommandResData(EndianBufferWriter<CommandDataBuffer>::FromValue(ScriptObjectInternal::RemoveFirstTupleElement(res)));
-		return ScriptObject::DoCommandProcessResult(std::get<0>(res), callback, estimate_only, asynchronous);
+		return ScriptObject::DoCommandProcessResult(ExtractCommandCost(res), callback, estimate_only, asynchronous);
 	}
 }
 
@@ -503,5 +525,38 @@ public:
 		return this->data;
 	}
 };
+
+/**
+ * Allocator that uses script memory allocation accounting.
+ * @tparam T Type of allocator.
+ */
+template <typename T>
+struct ScriptStdAllocator
+{
+	using value_type = T;
+
+	ScriptStdAllocator() = default;
+
+	template <typename U>
+	constexpr ScriptStdAllocator(const ScriptStdAllocator<U> &) noexcept {}
+
+	T *allocate(std::size_t n)
+	{
+		Squirrel::IncreaseAllocatedSize(n * sizeof(T));
+		return std::allocator<T>{}.allocate(n);
+	}
+
+	void deallocate(T *mem, std::size_t n)
+	{
+		Squirrel::DecreaseAllocatedSize(n * sizeof(T));
+		std::allocator<T>{}.deallocate(mem, n);
+	}
+};
+
+template <typename T, typename U>
+bool operator==(const ScriptStdAllocator<T> &, const ScriptStdAllocator<U> &) { return true; }
+
+template <typename T, typename U>
+bool operator!=(const ScriptStdAllocator<T> &, const ScriptStdAllocator<U> &) { return false; }
 
 #endif /* SCRIPT_OBJECT_HPP */

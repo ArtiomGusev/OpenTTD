@@ -58,7 +58,7 @@ HSQUIRRELVM sq_open(SQInteger initialstacksize)
 	SQVM *v;
 	sq_new(ss, SQSharedState);
 	v = (SQVM *)SQ_MALLOC(sizeof(SQVM));
-	new (v) SQVM(ss);
+	new (v, sizeof(SQVM)) SQVM(ss);
 	ss->_root_vm = v;
 	if(v->Init(nullptr, initialstacksize)) {
 		return v;
@@ -76,7 +76,7 @@ HSQUIRRELVM sq_newthread(HSQUIRRELVM friendvm, SQInteger initialstacksize)
 	ss=_ss(friendvm);
 
 	v= (SQVM *)SQ_MALLOC(sizeof(SQVM));
-	new (v) SQVM(ss);
+	new (v, sizeof(SQVM)) SQVM(ss);
 
 	if(v->Init(friendvm, initialstacksize)) {
 		friendvm->Push(v);
@@ -472,7 +472,7 @@ SQRESULT sq_setroottable(HSQUIRRELVM v)
 		v->Pop();
 		return SQ_OK;
 	}
-	return sq_throwerror(v, "ivalid type");
+	return sq_throwerror(v, "invalid type");
 }
 
 SQRESULT sq_setconsttable(HSQUIRRELVM v)
@@ -483,7 +483,7 @@ SQRESULT sq_setconsttable(HSQUIRRELVM v)
 		v->Pop();
 		return SQ_OK;
 	}
-	return sq_throwerror(v, "ivalid type, expected table");
+	return sq_throwerror(v, "invalid type, expected table");
 }
 
 void sq_setforeignptr(HSQUIRRELVM v,SQUserPointer p)
@@ -796,7 +796,7 @@ SQRESULT sq_setdelegate(HSQUIRRELVM v,SQInteger idx)
 	switch(type) {
 	case OT_TABLE:
 		if(type(mt) == OT_TABLE) {
-			if(!_table(self)->SetDelegate(_table(mt))) return sq_throwerror(v, "delagate cycle");
+			if(!_table(self)->SetDelegate(_table(mt))) return sq_throwerror(v, "delegate cycle");
 			v->Pop();}
 		else if(type(mt)==OT_NULL) {
 			_table(self)->SetDelegate(nullptr); v->Pop(); }
@@ -976,6 +976,10 @@ SQRESULT sq_call(HSQUIRRELVM v,SQInteger params,SQBool retval,SQBool raiseerror,
 	if(v->Call(v->GetUp(-(params+1)),params,v->_top-params,res,raiseerror != 0,v->_can_suspend)){
 		if(!v->_suspended) {
 			v->Pop(params);//pop closure and args
+		}
+		if (!v->_can_suspend && v->IsOpsTillSuspendError()) {
+			v->Raise_Error(fmt::format("excessive CPU usage in {}", v->_ops_till_suspend_error_label));
+			return SQ_ERROR;
 		}
 		if(retval){
 			v->Push(res); return SQ_OK;

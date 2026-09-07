@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file ground_vehicle.cpp Implementation of GroundVehicle. */
@@ -29,7 +29,7 @@ void GroundVehicle<T, Type>::PowerChanged()
 	uint16_t max_track_speed = this->vcache.cached_max_speed; // Max track speed in internal units.
 
 	for (const T *u = v; u != nullptr; u = u->Next()) {
-		uint32_t current_power = u->GetPower() + u->GetPoweredPartPower(u);
+		uint32_t current_power = u->GetPower() + u->GetPoweredPartPower();
 		total_power += current_power;
 
 		/* Only powered parts add tractive effort. */
@@ -64,8 +64,8 @@ void GroundVehicle<T, Type>::PowerChanged()
 
 		this->gcache.cached_power = total_power;
 		this->gcache.cached_max_te = max_te;
-		SetWindowDirty(WC_VEHICLE_DETAILS, this->index);
-		SetWindowWidgetDirty(WC_VEHICLE_VIEW, this->index, WID_VV_START_STOP);
+		SetWindowDirty(WindowClass::VehicleDetails, this->index);
+		SetWindowWidgetDirty(WindowClass::VehicleView, this->index, WID_VV_START_STOP);
 	}
 
 	this->gcache.cached_max_track_speed = max_track_speed;
@@ -131,7 +131,7 @@ int GroundVehicle<T, Type>::GetAcceleration() const
 	 */
 	int64_t resistance = 0;
 
-	bool maglev = v->GetAccelerationType() == 2;
+	bool maglev = v->GetAccelerationType() == VehicleAccelerationModel::Maglev;
 
 	const int area = v->GetAirDragArea();
 	if (!maglev) {
@@ -191,8 +191,8 @@ bool GroundVehicle<T, Type>::IsChainInDepot() const
 {
 	const T *v = this->First();
 	/* Is the front engine stationary in the depot? */
-	static_assert((int)TRANSPORT_RAIL == (int)VEH_TRAIN);
-	static_assert((int)TRANSPORT_ROAD == (int)VEH_ROAD);
+	static_assert(to_underlying(TransportType::Rail) == to_underlying(VehicleType::Train));
+	static_assert(to_underlying(TransportType::Road) == to_underlying(VehicleType::Road));
 	if (!IsDepotTypeTile(v->tile, (TransportType)Type) || v->cur_speed != 0) return false;
 
 	/* Check whether the rest is also already trying to enter the depot. */
@@ -204,6 +204,6 @@ bool GroundVehicle<T, Type>::IsChainInDepot() const
 }
 
 /* Instantiation for Train */
-template struct GroundVehicle<Train, VEH_TRAIN>;
+template struct GroundVehicle<Train, VehicleType::Train>;
 /* Instantiation for RoadVehicle */
-template struct GroundVehicle<RoadVehicle, VEH_ROAD>;
+template struct GroundVehicle<RoadVehicle, VehicleType::Road>;

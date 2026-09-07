@@ -2,12 +2,14 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file hotkeys.cpp Implementation of hotkey related functions */
+/** @file hotkeys.cpp Implementation of hotkey related functions. */
 
 #include "stdafx.h"
+#include "core/backup_type.hpp"
+#include "gfx_func.h"
 #include "openttd.h"
 #include "hotkeys.h"
 #include "ini_type.h"
@@ -257,6 +259,7 @@ HotkeyList::HotkeyList(const std::string &ini_group, const std::vector<Hotkey> &
 	_hotkey_lists->push_back(this);
 }
 
+/** Remove ourselves from the global hotkey list. */
 HotkeyList::~HotkeyList()
 {
 	_hotkey_lists->erase(std::ranges::find(*_hotkey_lists, this));
@@ -314,7 +317,7 @@ int HotkeyList::CheckMatch(uint16_t keycode, bool global_only) const
 static void SaveLoadHotkeys(bool save)
 {
 	IniFile ini{};
-	ini.LoadFromDisk(_hotkeys_file, NO_DIRECTORY);
+	ini.LoadFromDisk(_hotkeys_file, Subdirectory::None);
 
 	for (HotkeyList *list : *_hotkey_lists) {
 		if (save) {
@@ -340,13 +343,29 @@ void SaveHotkeysToConfig()
 	SaveLoadHotkeys(true);
 }
 
+/**
+ * Call the global handler for a hotkey.
+ * @note Clears shift and ctrl keystate to allow hotkeys to use modifiers.
+ * @param func The global hotkey handler.
+ * @param hotkey The hotkey.
+ * @return EventState of the hotkey handler.
+ */
+static EventState HandleGlobalHotkey(HotkeyList::GlobalHotkeyHandlerFunc func, int hotkey)
+{
+	/* Clear global modifier keys so they do not interfere with modifiers assigned to hotkeys. */
+	AutoRestoreBackup _shift_backup{_shift_pressed, false};
+	AutoRestoreBackup _ctrl_backup{_ctrl_pressed, false};
+
+	return func(hotkey);
+}
+
 void HandleGlobalHotkeys([[maybe_unused]] char32_t key, uint16_t keycode)
 {
 	for (HotkeyList *list : *_hotkey_lists) {
 		if (list->global_hotkey_handler == nullptr) continue;
 
 		int hotkey = list->CheckMatch(keycode, true);
-		if (hotkey >= 0 && (list->global_hotkey_handler(hotkey) == ES_HANDLED)) return;
+		if (hotkey >= 0 && HandleGlobalHotkey(list->global_hotkey_handler, hotkey) == EventState::Handled) return;
 	}
 }
 

@@ -2,15 +2,12 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /**
- * @file timer_game_calendar.cpp
- * This file implements the timer logic for the game-calendar-timer.
- */
-
-/**
+ * @file timer_game_calendar.cpp This file implements the timer logic for the game-calendar-timer.
+ *
  * Calendar time is used for technology and time-of-year changes, including:
  * - Vehicle, airport, station, object introduction and obsolescence
  * - Vehicle and engine age
@@ -22,6 +19,7 @@
 
 #include "../stdafx.h"
 #include "../openttd.h"
+#include "../settings_type.h"
 #include "timer.h"
 #include "timer_game_calendar.h"
 #include "../vehicle_base.h"
@@ -94,11 +92,9 @@ void TimeoutTimer<TimerGameCalendar>::Elapsed(TimerGameCalendar::TElapsed trigge
 }
 
 template <>
-bool TimerManager<TimerGameCalendar>::Elapsed([[maybe_unused]] TimerGameCalendar::TElapsed delta)
+bool TimerManager<TimerGameCalendar>::Elapsed(TimerGameCalendar::TElapsed)
 {
-	assert(delta == 1);
-
-	if (_game_mode == GM_MENU) return false;
+	if (_game_mode == GameMode::Menu) return false;
 
 	/* If calendar day progress is frozen, don't try to advance time. */
 	if (_settings_game.economy.minutes_per_calendar_year == CalendarTime::FROZEN_MINUTES_PER_YEAR) return false;
@@ -140,18 +136,18 @@ bool TimerManager<TimerGameCalendar>::Elapsed([[maybe_unused]] TimerGameCalendar
 	auto timers = TimerManager<TimerGameCalendar>::GetTimers();
 
 	for (auto timer : timers) {
-		timer->Elapsed(TimerGameCalendar::DAY);
+		timer->Elapsed(TimerGameCalendar::Trigger::Day);
 	}
 
 	if (new_month) {
 		for (auto timer : timers) {
-			timer->Elapsed(TimerGameCalendar::MONTH);
+			timer->Elapsed(TimerGameCalendar::Trigger::Month);
 		}
 	}
 
 	if (new_year) {
 		for (auto timer : timers) {
-			timer->Elapsed(TimerGameCalendar::YEAR);
+			timer->Elapsed(TimerGameCalendar::Trigger::Year);
 		}
 	}
 
@@ -169,7 +165,7 @@ bool TimerManager<TimerGameCalendar>::Elapsed([[maybe_unused]] TimerGameCalendar
 template <>
 void TimerManager<TimerGameCalendar>::Validate(TimerGameCalendar::TPeriod period)
 {
-	if (period.priority == TimerGameCalendar::Priority::NONE) return;
+	if (period.priority == TimerGameCalendar::Priority::None) return;
 
 	/* Validate we didn't make a developer error and scheduled more than one
 	 * entry on the same priority/trigger. There can only be one timer on

@@ -2,17 +2,16 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file squirrel_std.cpp Implements the Squirrel Standard Function class */
+/** @file squirrel_std.cpp Implements the Squirrel Standard Function class. */
 
 #include "../stdafx.h"
 #include <squirrel.h>
 #include <sqstdmath.h>
 #include "../debug.h"
 #include "squirrel_std.hpp"
-#include "../core/math_func.hpp"
 #include "../string_func.h"
 
 #include "../safeguards.h"
@@ -82,20 +81,20 @@ SQInteger SquirrelStd::notifyallexceptions(HSQUIRRELVM vm)
 	return SQ_ERROR;
 }
 
-void squirrel_register_global_std(Squirrel *engine)
+void squirrel_register_global_std(Squirrel &engine)
 {
 	/* We don't use squirrel_helper here, as we want to register to the global
 	 *  scope and not to a class. */
-	engine->AddMethod("require",             &SquirrelStd::require,             ".s");
-	engine->AddMethod("notifyallexceptions", &SquirrelStd::notifyallexceptions, ".b");
+	engine.AddMethod("require",             &SquirrelStd::require,             ".s");
+	engine.AddMethod("notifyallexceptions", &SquirrelStd::notifyallexceptions, ".b");
 }
 
-void squirrel_register_std(Squirrel *engine)
+void squirrel_register_std(Squirrel &engine)
 {
 	/* We don't use squirrel_helper here, as we want to register to the global
 	 *  scope and not to a class. */
-	engine->AddMethod("min", &SquirrelStd::min, ".ii");
-	engine->AddMethod("max", &SquirrelStd::max, ".ii");
+	engine.AddMethod("min", &SquirrelStd::min, ".ii");
+	engine.AddMethod("max", &SquirrelStd::max, ".ii");
 
-	sqstd_register_mathlib(engine->GetVM());
+	sqstd_register_mathlib(engine.GetVM());
 }

@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file sound.cpp Handling of playing sounds. */
@@ -37,7 +37,7 @@ static void OpenBankFile(const std::string &filename)
 	/* If there is no sound file (nosound set), don't load anything */
 	if (filename.empty()) return;
 
-	original_sound_file = std::make_unique<RandomAccessFile>(filename, BASESET_DIR);
+	original_sound_file = std::make_unique<RandomAccessFile>(filename, Subdirectory::Baseset);
 	size_t pos = original_sound_file->GetPos();
 	uint count = original_sound_file->ReadDword();
 
@@ -120,9 +120,10 @@ static void StartSound(SoundID sound_id, float pan, uint volume)
 	MxActivateChannel(mc);
 }
 
-
-static const uint8_t _vol_factor_by_zoom[] = {255, 255, 255, 190, 134, 87};
-static_assert(lengthof(_vol_factor_by_zoom) == to_underlying(ZoomLevel::End));
+/** Volume scaling for each zoom level. */
+static constexpr EnumIndexArray<uint8_t, ZoomLevel, ZoomLevel::End> _vol_factor_by_zoom{
+	255, 255, 255, 190, 134, 8
+};
 
 static const uint8_t _sound_base_vol[] = {
 	128,  90, 128, 128, 128, 128, 128, 128,
@@ -187,7 +188,7 @@ void ChangeSoundSet(int index)
 		sound->priority = 0;
 	}
 
-	InvalidateWindowData(WC_GAME_OPTIONS, WN_GAME_OPTIONS_GAME_OPTIONS, 0, true);
+	InvalidateWindowData(WindowClass::GameOptions, GameOptionsWindowNumber::GameOptions, 0, true);
 }
 
 /**
@@ -215,7 +216,7 @@ static void SndPlayScreenCoordFx(SoundID sound, int left, int right, int top, in
 			StartSound(
 				sound,
 				panning,
-				_vol_factor_by_zoom[to_underlying(vp.zoom)]
+				_vol_factor_by_zoom[vp.zoom]
 			);
 			return;
 		}
@@ -247,28 +248,47 @@ void SndPlayFx(SoundID sound)
 	StartSound(sound, 0.5, UINT8_MAX);
 }
 
+/**
+ * Play a beep sound for a click event if enabled in settings.
+ */
+void SndClickBeep()
+{
+	if (_settings_client.sound.click_beep) SndPlayFx(SND_15_BEEP);
+}
+
+/**
+ * Play a beep sound for a confirm event if enabled in settings.
+ */
+void SndConfirmBeep()
+{
+	if (_settings_client.sound.confirm) SndPlayFx(SND_15_BEEP);
+}
+
 /** Names corresponding to the sound set's files */
 static const std::string_view _sound_file_names[] = { "samples" };
 
+/** @copydoc BaseSet::GetFilenames */
 template <>
 /* static */ std::span<const std::string_view> BaseSet<SoundsSet>::GetFilenames()
 {
 	return _sound_file_names;
 }
 
+/** @copydoc BaseMedia::GetExtension */
 template <>
 /* static */ std::string_view BaseMedia<SoundsSet>::GetExtension()
 {
 	return ".obs"; // OpenTTD Base Sounds
 }
 
+/** @copydoc BaseMedia::DetermineBestSet */
 template <>
 /* static */ bool BaseMedia<SoundsSet>::DetermineBestSet()
 {
 	if (BaseMedia<SoundsSet>::used_set != nullptr) return true;
 
 	const SoundsSet *best = nullptr;
-	for (const SoundsSet *c = BaseMedia<SoundsSet>::available_sets; c != nullptr; c = c->next) {
+	for (const auto &c : BaseMedia<SoundsSet>::available_sets) {
 		/* Skip unusable sets */
 		if (c->GetNumMissing() != 0) continue;
 
@@ -277,7 +297,7 @@ template <>
 				best->valid_files < c->valid_files ||
 				(best->valid_files == c->valid_files &&
 					(best->shortname == c->shortname && best->version < c->version))) {
-			best = c;
+			best = c.get();
 		}
 	}
 

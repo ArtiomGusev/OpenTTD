@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file rail.h Rail specific functions. */
@@ -13,8 +13,8 @@
 #include "rail_type.h"
 #include "track_type.h"
 #include "gfx_type.h"
-#include "core/bitmath_func.hpp"
 #include "core/enum_type.hpp"
+#include "core/flatset_type.hpp"
 #include "economy_func.h"
 #include "slope_type.h"
 #include "strings_type.h"
@@ -32,26 +32,28 @@ enum class RailTypeFlag : uint8_t {
 	Allow90Deg      = 4, ///< Bit number for always allowed 90 degree turns, regardless of setting.
 	Disallow90Deg   = 5, ///< Bit number for never allowed 90 degree turns, regardless of setting.
 };
+
+/** Bitset of \c RailTypeFlag elements. */
 using RailTypeFlags = EnumBitSet<RailTypeFlag, uint8_t>;
 
 struct SpriteGroup;
 
-/** Sprite groups for a railtype. */
-enum RailTypeSpriteGroup : uint8_t {
-	RTSG_CURSORS,     ///< Cursor and toolbar icon images
-	RTSG_OVERLAY,     ///< Images for overlaying track
-	RTSG_GROUND,      ///< Main group of ground images
-	RTSG_TUNNEL,      ///< Main group of ground images for snow or desert
-	RTSG_WIRES,       ///< Catenary wires
-	RTSG_PYLONS,      ///< Catenary pylons
-	RTSG_BRIDGE,      ///< Bridge surface images
-	RTSG_CROSSING,    ///< Level crossing overlay images
-	RTSG_DEPOT,       ///< Depot images
-	RTSG_FENCES,      ///< Fence images
-	RTSG_TUNNEL_PORTAL, ///< Tunnel portal overlay
-	RTSG_SIGNALS,     ///< Signal images
-	RTSG_GROUND_COMPLETE, ///< Complete ground images
-	RTSG_END,
+/** Sprite types for a railtype. */
+enum class RailSpriteType : uint8_t {
+	UI, ///< Cursor and toolbar icon images
+	Overlay, ///< Images for overlaying track
+	Ground, ///< Main group of ground images
+	Tunnel, ///< Main group of ground images for snow or desert
+	Wires, ///< Catenary wires
+	Pylons, ///< Catenary pylons
+	Bridge, ///< Bridge surface images
+	Crossing, ///< Level crossing overlay images
+	Depot, ///< Depot images
+	Fences, ///< Fence images
+	TunnelPortal, ///< Tunnel portal overlay
+	Signals, ///< Signal images
+	GroundComplete, ///< Complete ground images
+	End, ///< End marker.
 };
 
 /**
@@ -109,9 +111,6 @@ enum RailFenceOffset : uint8_t {
 	RFO_SLOPE_NW_SW,   //!< Slope NW,   Track Y,     Fence SW
 };
 
-/** List of rail type labels. */
-typedef std::vector<RailTypeLabel> RailTypeLabelList;
-
 /**
  * This struct contains all the info that is needed to draw and construct tracks.
  */
@@ -134,6 +133,7 @@ public:
 		SpriteID single_sloped;///< single piece of rail for slopes
 		SpriteID crossing;     ///< level crossing, rail in X direction
 		SpriteID tunnel;       ///< tunnel sprites base
+		SpriteID bridge_deck;  ///< bridge deck sprites base
 	} base_sprites;
 
 	/**
@@ -149,7 +149,7 @@ public:
 		SpriteID build_depot;        ///< button for building depots
 		SpriteID build_tunnel;       ///< button for building a tunnel
 		SpriteID convert_rail;       ///< button for converting rail
-		SpriteID signals[SIGTYPE_END][2][2]; ///< signal GUI sprites (type, variant, state)
+		EnumIndexArray<EnumIndexArray<EnumIndexArray<SpriteID, SignalState, SignalState::End>, SignalVariant, SignalVariant::End>, SignalType, SignalType::End> signals; ///< signal GUI sprites (type, variant, state)
 	} gui_sprites;
 
 	struct {
@@ -184,7 +184,7 @@ public:
 	/**
 	 * Bridge offset
 	 */
-	SpriteID bridge_offset;
+	uint8_t bridge_offset;
 
 	/**
 	 * Original railtype number to use when drawing non-newgrf railtypes, or when drawing stations.
@@ -214,7 +214,7 @@ public:
 	/**
 	 * Acceleration type of this rail type
 	 */
-	uint8_t acceleration_type;
+	VehicleAccelerationModel acceleration_type;
 
 	/**
 	 * Maximum speed for vehicles travelling on this rail type
@@ -229,12 +229,12 @@ public:
 	/**
 	 * Rail type labels this type provides in addition to the main label.
 	 */
-	RailTypeLabelList alternate_labels;
+	FlatSet<RailTypeLabel> alternate_labels;
 
 	/**
 	 * Colour on mini-map
 	 */
-	uint8_t map_colour;
+	PixelColour map_colour;
 
 	/**
 	 * Introduction date.
@@ -264,18 +264,18 @@ public:
 	/**
 	 * NewGRF providing the Action3 for the railtype. nullptr if not available.
 	 */
-	const GRFFile *grffile[RTSG_END];
+	EnumIndexArray<const GRFFile *, RailSpriteType, RailSpriteType::End> grffile{};
 
 	/**
 	 * Sprite groups for resolving sprites
 	 */
-	const SpriteGroup *group[RTSG_END];
+	EnumIndexArray<const SpriteGroup *, RailSpriteType, RailSpriteType::End> group{};
 
 	std::vector<BadgeID> badges;
 
 	inline bool UsesOverlay() const
 	{
-		return this->group[RTSG_GROUND] != nullptr;
+		return this->group[RailSpriteType::Ground] != nullptr;
 	}
 
 	/**
@@ -284,11 +284,14 @@ public:
 	 *    is determined by normal rail. Check sprites 1005 and following for this order<p>
 	 * 2) The position where the railtype is loaded must always be the same, otherwise
 	 *    the offset will fail.
+	 * @return The offset.
 	 */
 	inline uint GetRailtypeSpriteOffset() const
 	{
 		return 82 * this->fallback_railtype;
 	}
+
+	RailType Index() const;
 };
 
 
@@ -305,16 +308,39 @@ inline const RailTypeInfo *GetRailTypeInfo(RailType railtype)
 }
 
 /**
- * Returns the railtype for a Railtype information.
- * @param rti Pointer to static RailTypeInfo
- * @return Railtype in static railtype definitions
+ * Returns all compatible railtypes for a set of railtypes.
+ * @param railtypes Set of railtypes to get the compatible railtypes from.
+ * @return Union of all compatible railtypes.
  */
-inline RailType GetRailTypeInfoIndex(const RailTypeInfo *rti)
+inline RailTypes GetAllCompatibleRailTypes(RailTypes railtypes)
 {
-	extern RailTypeInfo _railtypes[RAILTYPE_END];
-	size_t index = rti - _railtypes;
-	assert(index < RAILTYPE_END && rti == _railtypes + index);
-	return static_cast<RailType>(index);
+	RailTypes compatible{};
+	for (RailType rt : railtypes) compatible.Set(GetRailTypeInfo(rt)->compatible_railtypes);
+	return compatible;
+}
+
+/**
+ * Returns all powered railtypes for a set of railtypes.
+ * @param railtypes Set of railtypes to get the powered railtypes from.
+ * @return Union of all powered railtypes.
+ */
+inline RailTypes GetAllPoweredRailTypes(RailTypes railtypes)
+{
+	RailTypes powered{};
+	for (RailType rt : railtypes) powered.Set(GetRailTypeInfo(rt)->powered_railtypes);
+	return powered;
+}
+
+/**
+ * Returns all introduced railtypes for a set of railtypes.
+ * @param railtypes Set of railtypes to get the introduced railtypes from.
+ * @return Union of all introduced railtypes.
+ */
+inline RailTypes GetAllIntroducesRailTypes(RailTypes railtypes)
+{
+	RailTypes introduces{};
+	for (RailType rt : railtypes) introduces.Set(GetRailTypeInfo(rt)->introduces_railtypes);
+	return introduces;
 }
 
 /**
@@ -331,6 +357,18 @@ inline bool IsCompatibleRail(RailType enginetype, RailType tiletype)
 }
 
 /**
+ * Checks if an engine of the given RailTypes can drive on a tile with a given
+ * RailType.
+ * @param  enginetype The RailTypes of the engine we are considering.
+ * @param  tiletype   The RailType of the tile we are considering.
+ * @return Whether the engine can drive on this tile.
+ */
+inline bool IsCompatibleRail(RailTypes enginetype, RailType tiletype)
+{
+	return GetAllCompatibleRailTypes(enginetype).Test(tiletype);
+}
+
+/**
  * Checks if an engine of the given RailType got power on a tile with a given
  * RailType. This would normally just be an equality check, but for electric
  * rails (which also support non-electric engines).
@@ -341,6 +379,18 @@ inline bool IsCompatibleRail(RailType enginetype, RailType tiletype)
 inline bool HasPowerOnRail(RailType enginetype, RailType tiletype)
 {
 	return GetRailTypeInfo(enginetype)->powered_railtypes.Test(tiletype);
+}
+
+/**
+ * Checks if an engine of the given RailTypes got power on a tile with a given
+ * RailType.
+ * @param  enginetype The RailTypes of the engine we are considering.
+ * @param  tiletype   The RailType of the tile we are considering.
+ * @return Whether the engine got power on this tile.
+ */
+inline bool HasPowerOnRail(RailTypes enginetype, RailType tiletype)
+{
+	return GetAllPoweredRailTypes(enginetype).Test(tiletype);
 }
 
 /**
@@ -381,7 +431,7 @@ inline bool Rail90DegTurnDisallowed(RailType rt1, RailType rt2, bool def = _sett
 inline Money RailBuildCost(RailType railtype)
 {
 	assert(railtype < RAILTYPE_END);
-	return (_price[PR_BUILD_RAIL] * GetRailTypeInfo(railtype)->cost_multiplier) >> 3;
+	return (_price[Price::BuildRail] * GetRailTypeInfo(railtype)->cost_multiplier) >> 3;
 }
 
 /**
@@ -397,14 +447,14 @@ inline Money RailClearCost(RailType railtype)
 	 * cost.
 	 */
 	assert(railtype < RAILTYPE_END);
-	return std::max(_price[PR_CLEAR_RAIL], -RailBuildCost(railtype) * 3 / 4);
+	return std::max(_price[Price::ClearRail], -RailBuildCost(railtype) * 3 / 4);
 }
 
 /**
  * Calculates the cost of rail conversion
  * @param from The railtype we are converting from
  * @param to   The railtype we are converting to
- * @return Cost per TrackBit
+ * @return Cost per Track
  */
 inline Money RailConvertCost(RailType from, RailType to)
 {
@@ -436,7 +486,7 @@ inline Money RailConvertCost(RailType from, RailType to)
 inline Money RailMaintenanceCost(RailType railtype, uint32_t num, uint32_t total_num)
 {
 	assert(railtype < RAILTYPE_END);
-	return (_price[PR_INFRASTRUCTURE_RAIL] * GetRailTypeInfo(railtype)->maintenance_multiplier * num * (1 + IntSqrt(total_num))) >> 11; // 4 bits fraction for the multiplier and 7 bits scaling.
+	return (_price[Price::InfrastructureRail] * GetRailTypeInfo(railtype)->maintenance_multiplier * num * (1 + IntSqrt(total_num))) >> 11; // 4 bits fraction for the multiplier and 7 bits scaling.
 }
 
 /**
@@ -446,10 +496,10 @@ inline Money RailMaintenanceCost(RailType railtype, uint32_t num, uint32_t total
  */
 inline Money SignalMaintenanceCost(uint32_t num)
 {
-	return (_price[PR_INFRASTRUCTURE_RAIL] * 15 * num * (1 + IntSqrt(num))) >> 8; // 1 bit fraction for the multiplier and 7 bits scaling.
+	return (_price[Price::InfrastructureRail] * 15 * num * (1 + IntSqrt(num))) >> 8; // 1 bit fraction for the multiplier and 7 bits scaling.
 }
 
-void DrawTrainDepotSprite(int x, int y, int image, RailType railtype);
+void DrawTrainDepotSprite(int x, int y, DiagDirection dir, RailType railtype);
 int TicksToLeaveDepot(const Train *v);
 
 Foundation GetRailFoundation(Slope tileh, TrackBits bits);

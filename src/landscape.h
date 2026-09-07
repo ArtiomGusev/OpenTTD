@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file landscape.h Functions related to OTTD's landscape. */
@@ -33,13 +33,15 @@ uint8_t HighestSnowLine();
 uint8_t LowestSnowLine();
 void ClearSnowLine();
 
+bool IsMapSurroundedByWater();
+
 int GetSlopeZInCorner(Slope tileh, Corner corner);
 std::tuple<Slope, int> GetFoundationSlope(TileIndex tile);
 
 uint GetPartialPixelZ(int x, int y, Slope corners);
 int GetSlopePixelZ(int x, int y, bool ground_vehicle = false);
 int GetSlopePixelZOutsideMap(int x, int y);
-void GetSlopePixelZOnEdge(Slope tileh, DiagDirection edge, int &z1, int &z2);
+std::tuple<int, int> GetSlopePixelZOnEdge(Slope tileh, DiagDirection edge, int z);
 
 /**
  * Determine the Z height of a corner relative to TileZ.
@@ -128,9 +130,8 @@ inline uint ApplyPixelFoundationToSlope(Foundation f, Slope &s)
 	return ApplyFoundationToSlope(f, s) * TILE_HEIGHT;
 }
 
+uint GetFoundationSpriteBlock (TileIndex tile);
 void DrawFoundation(TileInfo *ti, Foundation f);
-bool HasFoundationNW(TileIndex tile, Slope slope_here, uint z_here);
-bool HasFoundationNE(TileIndex tile, Slope slope_here, uint z_here);
 
 void DoClearSquare(TileIndex tile);
 void RunTileLoop();

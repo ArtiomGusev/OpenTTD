@@ -13,7 +13,7 @@
 # This file is part of OpenTTD.
 # OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
 # OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-# See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+# See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
 
 
 ##id 0x0000
@@ -553,6 +553,8 @@ STR_GRAPH_COMPANY_PERFORMANCE_RATINGS_CAPTION                   :{WHITE}คะ�
 STR_GRAPH_COMPANY_VALUES_CAPTION                                :{WHITE}มูลค่าทรัพย์สินบริษัท
 
 
+
+
 STR_GRAPH_CARGO_PAYMENT_RATES_CAPTION                           :{WHITE}อัตราค่าตอบแทนการขนส่ง
 STR_GRAPH_CARGO_PAYMENT_RATES_TITLE                             :{TINY_FONT}{BLACK}ค่าขนส่งจากการขนส่งสินค้า 10 หน่วย (หรือ 10,000 ลิตร) ต่อระยะทาง 20 ช่องตาราง
 STR_GRAPH_CARGO_ENABLE_ALL                                      :{TINY_FONT}{BLACK}เปิดทั้งหมด
@@ -561,6 +563,7 @@ STR_GRAPH_CARGO_TOOLTIP_ENABLE_ALL                              :{BLACK}แส�
 STR_GRAPH_CARGO_TOOLTIP_DISABLE_ALL                             :{BLACK}ไม่แสดงสินค้าทั้งหมดในกราฟผลตอบแทนการขนส่งสินค้า
 STR_GRAPH_CARGO_PAYMENT_TOGGLE_CARGO                            :{BLACK}เปิด/ปิด กราฟสำหรับประเภทของสินค้า
 STR_GRAPH_CARGO_PAYMENT_CARGO                                   :{TINY_FONT}{BLACK}{STRING}
+
 
 
 STR_GRAPH_PERFORMANCE_DETAIL_TOOLTIP                            :{BLACK}แสดงรายละเอียดความพึงพอใจของผู้ใช้บริการ
@@ -860,11 +863,11 @@ STR_GAME_OPTIONS_CAPTION                                        :{WHITE}ตั�
 
 
 
-STR_GAME_OPTIONS_CURRENCY_UNITS_FRAME                           :{BLACK}หน่วยสกุลเงิน
-STR_GAME_OPTIONS_CURRENCY_UNITS_DROPDOWN_TOOLTIP                :{BLACK}การเลือกสกุลเงิน
+STR_GAME_OPTIONS_CURRENCY_UNITS_FRAME                           :หน่วยสกุลเงิน
+STR_GAME_OPTIONS_CURRENCY_UNITS_DROPDOWN_TOOLTIP                :การเลือกสกุลเงิน
 
 
-###length 45
+###length 46
 STR_GAME_OPTIONS_CURRENCY_GBP                                   :ปอนด์สเตอร์ลิง
 STR_GAME_OPTIONS_CURRENCY_USD                                   :ดอลลาร์สหรัฐ
 STR_GAME_OPTIONS_CURRENCY_EUR                                   :ยูโร
@@ -902,21 +905,21 @@ STR_GAME_OPTIONS_CURRENCY_IRR                                   :Iranian Rial
 STR_GAME_OPTIONS_CURRENCY_HKD                                   :ดอลลาร์ฮ่องกง
 STR_GAME_OPTIONS_CURRENCY_MYR                                   :ริงกิตมาเลเซีย
 
-STR_GAME_OPTIONS_AUTOSAVE_FRAME                                 :{BLACK}บันทึกเกมอัตโนมัติ
-STR_GAME_OPTIONS_AUTOSAVE_DROPDOWN_TOOLTIP                      :{BLACK}เลือกระยะห่างระหว่างการบันทึกเกมอัตโนมัติแต่ละครั้ง
+STR_GAME_OPTIONS_AUTOSAVE_FRAME                                 :บันทึกเกมอัตโนมัติ
+STR_GAME_OPTIONS_AUTOSAVE_DROPDOWN_TOOLTIP                      :เลือกระยะห่างระหว่างการบันทึกเกมอัตโนมัติแต่ละครั้ง
 
 # Autosave dropdown
 ###length 5
 STR_GAME_OPTIONS_AUTOSAVE_DROPDOWN_OFF                          :ปิด
 
-STR_GAME_OPTIONS_LANGUAGE                                       :{BLACK}ภาษา
-STR_GAME_OPTIONS_LANGUAGE_TOOLTIP                               :{BLACK}เลือกภาษาที่จะใช้
+STR_GAME_OPTIONS_LANGUAGE                                       :ภาษา
+STR_GAME_OPTIONS_LANGUAGE_TOOLTIP                               :เลือกภาษาที่จะใช้
 
-STR_GAME_OPTIONS_FULLSCREEN                                     :{BLACK}เต็มหน้าจอ
-STR_GAME_OPTIONS_FULLSCREEN_TOOLTIP                             :{BLACK}ทำเครื่องหมายที่ช่องนี้เพื่อเล่น OpenTTD fullscreen โหมด
+STR_GAME_OPTIONS_FULLSCREEN                                     :เต็มหน้าจอ
+STR_GAME_OPTIONS_FULLSCREEN_TOOLTIP                             :ทำเครื่องหมายที่ช่องนี้เพื่อเล่น OpenTTD fullscreen โหมด
 
-STR_GAME_OPTIONS_RESOLUTION                                     :{BLACK}ความละเอียดของหน้าจอ
-STR_GAME_OPTIONS_RESOLUTION_TOOLTIP                             :{BLACK}เลือกความละเอียดของหน้าจอที่จะใช้
+STR_GAME_OPTIONS_RESOLUTION                                     :ความละเอียดของหน้าจอ
+STR_GAME_OPTIONS_RESOLUTION_TOOLTIP                             :เลือกความละเอียดของหน้าจอที่จะใช้
 STR_GAME_OPTIONS_RESOLUTION_OTHER                               :อื่นๆ
 
 
@@ -929,20 +932,20 @@ STR_GAME_OPTIONS_RESOLUTION_OTHER                               :อื่นๆ
 
 
 
-STR_GAME_OPTIONS_REFRESH_RATE                                   :{BLACK}รีเฟรชเรทของหน้าจอ
+STR_GAME_OPTIONS_REFRESH_RATE                                   :รีเฟรชเรทของหน้าจอ
 STR_GAME_OPTIONS_REFRESH_RATE_WARNING                           :{WHITE}หากตั้งรีเฟรชเรทไว้มากกว่า 60Hz ขึ้นไป อาจมีผลต่อประสิทธิภาพของเกมได้
 
-STR_GAME_OPTIONS_BASE_GRF                                       :{BLACK}ตั้งค่า Graphic พื้นฐาน
-STR_GAME_OPTIONS_BASE_GRF_TOOLTIP                               :{BLACK}เลือกและตั้งค่าฐานกราฟิกที่จะใช้
-STR_GAME_OPTIONS_BASE_GRF_DESCRIPTION_TOOLTIP                   :{BLACK}ข้อมูลเพิ่มเติมเกี่ยวกับชุดกราฟฟิคพื้นฐาน
+STR_GAME_OPTIONS_BASE_GRF                                       :ตั้งค่า Graphic พื้นฐาน
+STR_GAME_OPTIONS_BASE_GRF_TOOLTIP                               :เลือกและตั้งค่าฐานกราฟิกที่จะใช้
+STR_GAME_OPTIONS_BASE_GRF_DESCRIPTION_TOOLTIP                   :ข้อมูลเพิ่มเติมเกี่ยวกับชุดกราฟฟิคพื้นฐาน
 
-STR_GAME_OPTIONS_BASE_SFX                                       :{BLACK}เลือกชุด Effect เสียงประกอบ
-STR_GAME_OPTIONS_BASE_SFX_TOOLTIP                               :{BLACK}ปรับและเลือกเสียงที่จะใช้
-STR_GAME_OPTIONS_BASE_SFX_DESCRIPTION_TOOLTIP                   :{BLACK}ปรับข้อมูลเพิ่มเติมเกี่ยวกับโหมดเสียง
+STR_GAME_OPTIONS_BASE_SFX                                       :เลือกชุด Effect เสียงประกอบ
+STR_GAME_OPTIONS_BASE_SFX_TOOLTIP                               :ปรับและเลือกเสียงที่จะใช้
+STR_GAME_OPTIONS_BASE_SFX_DESCRIPTION_TOOLTIP                   :ปรับข้อมูลเพิ่มเติมเกี่ยวกับโหมดเสียง
 
-STR_GAME_OPTIONS_BASE_MUSIC                                     :{BLACK}ชุดเพลงประกอบพื้นฐาน
-STR_GAME_OPTIONS_BASE_MUSIC_TOOLTIP                             :{BLACK}เลือกเพลงประกอบพื้นฐานเพื่อใช้งาน
-STR_GAME_OPTIONS_BASE_MUSIC_DESCRIPTION_TOOLTIP                 :{BLACK}ข้อมูลเพิ่มเติมเกี่ยวกับชุดเพลงประกอบพื้นฐาน
+STR_GAME_OPTIONS_BASE_MUSIC                                     :ชุดเพลงประกอบพื้นฐาน
+STR_GAME_OPTIONS_BASE_MUSIC_TOOLTIP                             :เลือกเพลงประกอบพื้นฐานเพื่อใช้งาน
+STR_GAME_OPTIONS_BASE_MUSIC_DESCRIPTION_TOOLTIP                 :ข้อมูลเพิ่มเติมเกี่ยวกับชุดเพลงประกอบพื้นฐาน
 
 
 
@@ -1014,9 +1017,9 @@ STR_RIVERS_MODERATE                                             :ปานกล
 STR_RIVERS_LOT                                                  :หลาย
 
 ###length 3
-STR_DISASTER_NONE                                               :ไม่มี
-STR_DISASTER_REDUCED                                            :ภาวะลดลง
-STR_DISASTER_NORMAL                                             :ภาวะปกติ
+STR_BREAKDOWNS_NONE                                             :ไม่มี
+STR_BREAKDOWNS_REDUCED                                          :ภาวะลดลง
+STR_BREAKDOWNS_NORMAL                                           :ภาวะปกติ
 
 ###length 4
 STR_SUBSIDY_X1_5                                                :1.5 เท่า
@@ -1046,9 +1049,9 @@ STR_CITY_APPROVAL_PERMISSIVE                                    :อนุญา
 STR_WARNING_NO_SUITABLE_AI                                      :{WHITE}ไม่มี AI ที่เหมาะสมปรากฎ...{}คุณสามารถดาวน์โหลด AI จากระบบ 'Online Content'
 
 # Settings tree in the Game Options window
-STR_CONFIG_SETTING_FILTER_TITLE                                 :{BLACK}เติม string:
-STR_CONFIG_SETTING_EXPAND_ALL                                   :{BLACK}ขยายทั้งหมด
-STR_CONFIG_SETTING_COLLAPSE_ALL                                 :{BLACK}ยุบลงทั้งหมด
+STR_CONFIG_SETTING_FILTER_TITLE                                 :เติม string:
+STR_CONFIG_SETTING_EXPAND_ALL                                   :ขยายทั้งหมด
+STR_CONFIG_SETTING_COLLAPSE_ALL                                 :ยุบลงทั้งหมด
 STR_CONFIG_SETTING_NO_EXPLANATION_AVAILABLE_HELPTEXT            :(ไม่สามารถขยายได้)
 STR_CONFIG_SETTING_DEFAULT_VALUE                                :{LTBLUE}ค่าเริ่มต้น: {ORANGE}{STRING}
 STR_CONFIG_SETTING_TYPE                                         :{LTBLUE}ประเภทการตั้งค่า: {ORANGE}{STRING}
@@ -1060,9 +1063,9 @@ STR_CONFIG_SETTING_TYPE_COMPANY_INGAME                          :ตั้งค
 STR_CONFIG_SETTING_RESET_ALL_CONFIRMATION_DIALOG_CAPTION        :{WHITE}คำเตือน!
 STR_CONFIG_SETTING_RESET_ALL_CONFIRMATION_DIALOG_TEXT           :{WHITE}การกระทำนี้จะล้างการตั้งค่าเกมเดิมของคุณ{} คุณแน่ใจหรือไม่ที่จะกระทำแบบนี้?
 
-STR_CONFIG_SETTING_RESTRICT_CATEGORY                            :{BLACK}หมวดหมู่:
-STR_CONFIG_SETTING_RESTRICT_TYPE                                :{BLACK}ชนิด:
-STR_CONFIG_SETTING_RESTRICT_DROPDOWN_HELPTEXT                   :{BLACK}จำกัดรายการด้านล่างให้แสดงเฉพาะการตั้งค่าที่มีการเปลี่ยนแปลง
+STR_CONFIG_SETTING_RESTRICT_CATEGORY                            :หมวดหมู่:
+STR_CONFIG_SETTING_RESTRICT_TYPE                                :ชนิด:
+STR_CONFIG_SETTING_RESTRICT_DROPDOWN_HELPTEXT                   :จำกัดรายการด้านล่างให้แสดงเฉพาะการตั้งค่าที่มีการเปลี่ยนแปลง
 STR_CONFIG_SETTING_RESTRICT_BASIC                               :ตั้งค่าพื้นฐาน
 STR_CONFIG_SETTING_RESTRICT_ADVANCED                            :ตั้งค่าขั้นสูง
 STR_CONFIG_SETTING_RESTRICT_ALL                                 :การตั้งค่าแบบผู้เชี่ยวชาญ / การตั้งค่าทั้งหมด
@@ -1110,6 +1113,7 @@ STR_CONFIG_SETTING_INTEREST_RATE_HELPTEXT                       :อัตรา
 
 STR_CONFIG_SETTING_RUNNING_COSTS                                :ระดับของค่าปฎิบัติการของยานพาหนะต่างๆ: {STRING}
 STR_CONFIG_SETTING_RUNNING_COSTS_HELPTEXT                       :กำหนดระดับของการบำรุงรักษาและค่าใช้จ่ายของยานพาหนะและโครงสร้างพื้นฐาน
+###length 3
 
 STR_CONFIG_SETTING_CONSTRUCTION_SPEED                           :ควานเร็วในการก่อสร้าง: {STRING}
 STR_CONFIG_SETTING_CONSTRUCTION_SPEED_HELPTEXT                  :จำกัด จำนวนของการกระทำก่อสร้างสำหรับ AIs
@@ -1127,12 +1131,13 @@ STR_CONFIG_SETTING_SUBSIDY_DURATION_HELPTEXT                    :กำหนด
 
 STR_CONFIG_SETTING_CONSTRUCTION_COSTS                           :ค่าใช้จ่ายในการก่อสร้า: {STRING}
 STR_CONFIG_SETTING_CONSTRUCTION_COSTS_HELPTEXT                  :การตั้งค่าระดับของค่าใช้จ่ายในการก่อสร้างและซื้อ
+###length 3
 
 STR_CONFIG_SETTING_RECESSIONS                                   :เศรษฐกิจถดถอย: {STRING}
 STR_CONFIG_SETTING_RECESSIONS_HELPTEXT                          :หากเปิดใช้งาน การถดถอย อาจเกิดขึ้นทุก 2 - 3 ปี ในช่วงเศรษฐกิจตกต่ำในการผลิตทั้งหมด อย่างมีนัยสำคัญต่ำกว่า (มันจะกลับไปที่ระดับก่อนหน้านี้เมื่อภาวะถดถอยจบลง)
 
-STR_CONFIG_SETTING_TRAIN_REVERSING                              :ไม่อนุญาตให้รถไฟกลับขบวนในสถานี: {STRING}
-STR_CONFIG_SETTING_TRAIN_REVERSING_HELPTEXT                     :หากเปิดใช้งานรถไฟจะไม่ย้อนกลับในสถานีที่ไม่ใช่ปลายทางถ้ามีเส้นทางที่สั้นไปยังปลายทางต่อไปของพวกเขา จะย้อนกลับ
+
+###length 3
 
 STR_CONFIG_SETTING_DISASTERS                                    :ภัยพิบัติ: {STRING}
 STR_CONFIG_SETTING_DISASTERS_HELPTEXT                           :ภัยพิบัติซึ่งบางครั้งสลับอาจปิดกั้นหรือทำลายยานพาหนะหรือโครงสร้างพื้นฐาน
@@ -1304,6 +1309,8 @@ STR_CONFIG_SETTING_NEVER_EXPIRE_VEHICLES_HELPTEXT               :เมื่อ
 ###setting-zero-is-special
 
 
+###setting-zero-is-special
+
 STR_CONFIG_SETTING_AUTORENEW_VEHICLE                            :เปลี่ยนยานพาหนะใหม่โดยอัตโนมัติเมื่อเก่าเกินไป: {STRING}
 STR_CONFIG_SETTING_AUTORENEW_VEHICLE_HELPTEXT                   :เมื่อเปิดใช้งาน พาหนะที่ใกล้หมดอายุการใช้งาน จะทำการแทนที่ใหม่เอง
 
@@ -1362,6 +1369,8 @@ STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_SMOOTH                  :ราบเร
 STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_ROUGH                   :หยาบ
 STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_VERY_ROUGH              :หยาบมาก
 
+###length 4
+
 
 STR_CONFIG_SETTING_RIVER_AMOUNT                                 :จำนวนแม่น้ำ: {STRING}
 
@@ -1410,6 +1419,7 @@ STR_CONFIG_SETTING_SCROLLMODE_RMB                               :ย้ายแ
 
 STR_CONFIG_SETTING_SMOOTH_SCROLLING                             :เลื่อนอย่างนิ่มนวลบนจอภาพ: {STRING}
 STR_CONFIG_SETTING_SMOOTH_SCROLLING_HELPTEXT                    :ควบคุมการเคลื่อนที่ของจอภาพ เวลาคลิ๊กเลือกตำแหน่งในแผนที่ย่อ หากไม่เปิดใช้งาน ตำแหน่งของจอจะย้ายไปที่ตำแหน่งที่เลือกทันที แต่หากเปิดใช้งาน จะเคลื่อนที่ไปยังตำแหน่งอย่างนุ่มนวล
+
 
 STR_CONFIG_SETTING_MEASURE_TOOLTIP                              :แสดงบอลลูนข้อความแสดงระยะทางหรือข้อมูลอื่นๆ เมื่อใช่เครื่องมือสร้าง: {STRING}
 STR_CONFIG_SETTING_MEASURE_TOOLTIP_HELPTEXT                     :เปิดบอลลูนข้อความแสดงระยะทางหรือความสูง ขณะใช้เครื่องมือในการสร้างต่างๆ เพื่อให้ได้เห็นรายละเอียดที่เรากระทำการ ว่าเราวางรางรถไฟมาไกลแค่ไหน หรือปรับพื้นดินขึ้นไปสูงเท่าใดแล้ว
@@ -1490,12 +1500,7 @@ STR_CONFIG_SETTING_TIMETABLE_SHOW_ARRIVAL_DEPARTURE_HELPTEXT    :แสดงก
 STR_CONFIG_SETTING_QUICKGOTO                                    :เลือกคำสั่ง "ไปยัง" ไว้เสมอในการออกคำสั่งให้พาหนะ: {STRING}
 STR_CONFIG_SETTING_QUICKGOTO_HELPTEXT                           :เลือกคำสั่ง "ไปยัง" ไว้เป็นปกติเมื่อมีการเลือกปลายทาง
 
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE                            :การเลือกทางรถไฟที่เป็นแบบแรกเริ่มเมื่อคลิ๊กเครื่องมือสร้าง (เริ่มเกมใหม่/โหลดเกม): {STRING}
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE_HELPTEXT                   :ประเภทของทางรถไฟหลังจากเริ่มเกมใหม่ หรือโหลดเซฟเกม
 ###length 3
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE_FIRST                      :มีใช้ครั้งแรก
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE_LAST                       :มีใช้ครั้งสุดท้าย
-STR_CONFIG_SETTING_DEFAULT_RAIL_TYPE_MOST_USED                  :ใช้มากที่สุด
 
 STR_CONFIG_SETTING_SHOW_TRACK_RESERVATION                       :แสดงทางรถไฟที่ขบวนรถขอทางไว้: {STRING}
 STR_CONFIG_SETTING_SHOW_TRACK_RESERVATION_HELPTEXT              :แสดงการขอทางของขบวนรถไฟ โดยแสดงสีที่แตกต่างจากสีทางปกติเพื่อช่วยตรวจหาจุดบกพร่อง เมื่อขบวนรถไฟเข้าสู่ทางตอนที่ใช้สัญญาณระบบ Path-Based
@@ -1589,6 +1594,7 @@ STR_CONFIG_SETTING_NOSERVICE_HELPTEXT                           :เมื่อ
 
 STR_CONFIG_SETTING_WAGONSPEEDLIMITS                             :จำกัดความเร็วของรถจักร/รถพ่วง: {STRING}
 STR_CONFIG_SETTING_WAGONSPEEDLIMITS_HELPTEXT                    :เมื่อเปิดใช้งาน จะทำให้มีจำกัดความเร็วสูงสุดของยานพาหนะและรถพ่วงต่างๆ
+
 
 STR_CONFIG_SETTING_DISABLE_ELRAILS                              :ปิดระบบสายส่งไฟฟ้า(Electricfield): {STRING}
 STR_CONFIG_SETTING_DISABLE_ELRAILS_HELPTEXT                     :เมื่อเปิดการใช้งาน จะทำการปิดความต้องการการใช้งานระบบ Electrifield ของรถจักรหรือรถไฟฟ้า
@@ -1823,7 +1829,7 @@ STR_CONFIG_SETTING_LOCALISATION_UNITS_FORCE_SI                  :มาตรฐ
 
 STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT                    :หน่วยวัดความสูง: {STRING}
 STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_HELPTEXT           :การแสดงหน่วยวัดความสูงเมื่อกดดูรายละเอียดของวัตถุต่างๆ
-###length 3
+###length 4
 STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_IMPERIAL           :อิมพีเรียล (ฟุต)
 STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_METRIC             :เมตริก (เมตร)
 STR_CONFIG_SETTING_LOCALISATION_UNITS_HEIGHT_SI                 :มาตรฐานสากล (เมตร)
@@ -1868,10 +1874,8 @@ STR_CONFIG_ERROR_INVALID_SAVEGAME_COMPRESSION_ALGORITHM         :{WHITE}... ร�
 STR_CONFIG_ERROR_INVALID_BASE_GRAPHICS_NOT_FOUND                :{WHITE}... ไม่สนใน Base Graphics set '{STRING}': หาไม่พบ
 STR_CONFIG_ERROR_INVALID_BASE_SOUNDS_NOT_FOUND                  :{WHITE}... ไม่สนใน Base Sounds set '{STRING}': หาไม่พบ
 STR_CONFIG_ERROR_INVALID_BASE_MUSIC_NOT_FOUND                   :{WHITE}... ไม่สนใจ Base Music set '{STRING}': หาไม่พบ
-STR_CONFIG_ERROR_OUT_OF_MEMORY                                  :{WHITE}หน่วยความจำไม่เพียงพอ
-STR_CONFIG_ERROR_SPRITECACHE_TOO_BIG                            :{WHITE}การกำหนดพื้นที่ {BYTES} ของ Spritecache ล้มเหลว Spritecache ได้ลดลง {BYTES}. นี่คือการทำให้ประสิทธิภาพของเกม OpenTTD ลดลง. เพื่อลดความต้องการของหน่วยความจำ ให้ทำการปิดการใช้งานระบบ 32bpp graphics
 
-# Video initalization errors
+# Video initialization errors
 STR_VIDEO_DRIVER_ERROR_NO_HARDWARE_ACCELERATION                 :{WHITE}... ไม่พบ GPU ที่รองรับ การเร่งฮาร์ดแวร์ถูกยกเลิกแล้ว
 
 # Intro window
@@ -1971,12 +1975,7 @@ STR_LIVERY_FREIGHT_TRAM                                         :รถราง
 STR_FACE_CAPTION                                                :{WHITE}เลือกใบหน้า
 STR_FACE_CANCEL_TOOLTIP                                         :{BLACK}ยกเลิการเลือกใบหน้าใหม่
 STR_FACE_OK_TOOLTIP                                             :{BLACK}ยอมรับการเลือกใบหน้าใหม่
-STR_FACE_RANDOM                                                 :{BLACK}สุ่ม
 
-STR_FACE_MALE_BUTTON                                            :{BLACK}ผู้ชาย
-STR_FACE_MALE_TOOLTIP                                           :{BLACK}เลือกใบหน้าผู้ชาย
-STR_FACE_FEMALE_BUTTON                                          :{BLACK}ผู้หญิง
-STR_FACE_FEMALE_TOOLTIP                                         :{BLACK}เลือกใบหน้าผู้หญิง
 STR_FACE_NEW_FACE_BUTTON                                        :{BLACK}ใบหน้าใหม่
 STR_FACE_NEW_FACE_TOOLTIP                                       :{BLACK}ทำใบหน้าสุ่มใหม่
 STR_FACE_ADVANCED                                               :{BLACK}ขั้นสูง
@@ -1994,36 +1993,20 @@ STR_FACE_FACECODE_ERR                                           :{WHITE}ไม�
 STR_FACE_SAVE                                                   :{BLACK}บันทึก
 STR_FACE_SAVE_TOOLTIP                                           :{BLACK}บันทึกใบหน้าโปรด
 STR_FACE_SAVE_DONE                                              :{WHITE}ใบหน้านี้จะถูกบันทึกเป็นใบหน้าโปรดในไฟล์การตั้งค่าของ OpenTTD
-STR_FACE_EUROPEAN                                               :{BLACK}ยุโรป
-STR_FACE_EUROPEAN_TOOLTIP                                       :{BLACK}เลือกใบหน้ายุโรป
-STR_FACE_AFRICAN                                                :{BLACK}แอฟริกัน
-STR_FACE_AFRICAN_TOOLTIP                                        :{BLACK}เลือกใบหน้าแอฟริกัน
 STR_FACE_YES                                                    :ใช่
 STR_FACE_NO                                                     :ไม่
-STR_FACE_MOUSTACHE_EARRING_TOOLTIP                              :{BLACK}เปิดใช้งานหนวด
 STR_FACE_HAIR                                                   :ผม:
-STR_FACE_HAIR_TOOLTIP                                           :{BLACK}เปลี่ยนผม
 STR_FACE_EYEBROWS                                               :คิ้ว:
-STR_FACE_EYEBROWS_TOOLTIP                                       :{BLACK}เปลี่ยนคิ้ว
 STR_FACE_EYECOLOUR                                              :สีตา:
-STR_FACE_EYECOLOUR_TOOLTIP                                      :{BLACK}เปลี่ยนสีตา
 STR_FACE_GLASSES                                                :แว่น:
-STR_FACE_GLASSES_TOOLTIP                                        :{BLACK}เปิดใช้งานแว่นตา
-STR_FACE_GLASSES_TOOLTIP_2                                      :{BLACK}เปลี่ยนแว่นตา
 STR_FACE_NOSE                                                   :จมูก:
-STR_FACE_NOSE_TOOLTIP                                           :{BLACK}เปลี่ยนจมูก
 STR_FACE_LIPS                                                   :ปาก:
 STR_FACE_MOUSTACHE                                              :หนวด:
-STR_FACE_LIPS_MOUSTACHE_TOOLTIP                                 :{BLACK}เปลี่ยนปากหรือหนวด
 STR_FACE_CHIN                                                   :คาง:
-STR_FACE_CHIN_TOOLTIP                                           :{BLACK}เปลี่ยนคาง
 STR_FACE_JACKET                                                 :เสื้อ:
-STR_FACE_JACKET_TOOLTIP                                         :{BLACK}เปลี่ยนเสื้อ
 STR_FACE_COLLAR                                                 :คอเสื้อ:
-STR_FACE_COLLAR_TOOLTIP                                         :{BLACK}เปลี่ยนคอเสื้อ
 STR_FACE_TIE                                                    :เนคไท:
 STR_FACE_EARRING                                                :ต่างหู:
-STR_FACE_TIE_EARRING_TOOLTIP                                    :{BLACK}เปลี่ยนเนคไทหรือต่างหู
 
 # Matches ServerGameType
 ###length 3
@@ -2107,15 +2090,13 @@ STR_NETWORK_CONNECTING_WAITING                                  :{BLACK}{NUM} cl
 STR_NETWORK_CONNECTING_DOWNLOADING_1                            :ดาวน์โหลดไปแล้ว {BLACK}{BYTES}
 STR_NETWORK_CONNECTING_DOWNLOADING_2                            :{BLACK}{BYTES} / {BYTES} ดาวโหลดไปแล้วทั้งสิ้น
 
-###length 8
+###length 6
 STR_NETWORK_CONNECTING_1                                        :{BLACK}(1/6) กำลังเชื่อมต่อ...
 STR_NETWORK_CONNECTING_2                                        :{BLACK}(2/6) กำลังตรวจสอบการเข้าร่วม...
 STR_NETWORK_CONNECTING_3                                        :{BLACK}(3/6) กรุณารอ...
 STR_NETWORK_CONNECTING_4                                        :{BLACK}(4/6) ดาวโหลดแผนที่...
 STR_NETWORK_CONNECTING_5                                        :{BLACK}(5/6) ประมวลข้อมูล...
 STR_NETWORK_CONNECTING_6                                        :{BLACK}(6/6) ลงทะเบียน...
-STR_NETWORK_CONNECTING_SPECIAL_1                                :{BLACK}รวบรวมข้อมูลเกม...
-STR_NETWORK_CONNECTING_SPECIAL_2                                :{BLACK}รวบรวมข้อมูลบริษัท...
 
 STR_NETWORK_CONNECTION_DISCONNECT                               :{BLACK}ตัดการเชื่อมต่อ
 
@@ -2363,10 +2344,10 @@ STR_STATION_BUILD_SUPPLIES_CARGO                                :{BLACK}สิ�
 
 # Join station window
 STR_JOIN_STATION_CAPTION                                        :{WHITE}รวมสถานี
-STR_JOIN_STATION_CREATE_SPLITTED_STATION                        :{YELLOW}สร้างสถานีแยกต่างหาก
+STR_JOIN_STATION_CREATE_SPLIT_STATION                           :{YELLOW}สร้างสถานีแยกต่างหาก
 
 STR_JOIN_WAYPOINT_CAPTION                                       :{WHITE}รวมจุดตรวจ
-STR_JOIN_WAYPOINT_CREATE_SPLITTED_WAYPOINT                      :{YELLOW}สร้างจุดตรวจแยกต่างหาก
+STR_JOIN_WAYPOINT_CREATE_SPLIT_WAYPOINT                         :{YELLOW}สร้างจุดตรวจแยกต่างหาก
 
 # Generic toolbar
 
@@ -2415,12 +2396,15 @@ STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}สร�
 
 
 
+
+
+
+
 STR_STATION_CLASS_DFLT                                          :สถานีมาตรฐาน
 STR_STATION_CLASS_WAYP                                          :จุดตรวจ
 
 # Signal window
 STR_BUILD_SIGNAL_CAPTION                                        :{WHITE}เลือกชนิดของเสาอาณัติสัญญาณ
-STR_BUILD_SIGNAL_TOGGLE_ADVANCED_SIGNAL_TOOLTIP                 :{BLACK}แสดงประเภทเสาสัญญาณแบบขั้นสูง
 STR_BUILD_SIGNAL_SEMAPHORE_NORM_TOOLTIP                         :{BLACK}เสาอาณัติสัญญาณปกติ (แบบหางปลา){}เสาอาณัติสัญญาณแบบนี้เป็นประเภทพื้นฐานที่สุด, อนุญาตให้มีรถไฟเพียงขบวนเดียวเท่านั้นที่อยู่ในบล็อกสัญญาณนี้
 STR_BUILD_SIGNAL_SEMAPHORE_ENTRY_TOOLTIP                        :{BLACK}เสาอาณัติสัญญาณขาเข้า (แบบหางปลา){}ให้สัญญาณผ่านตลอดหากเสาขาออกต้นข้างหน้ายังปล่อยผ่านตลอดอยู่ นอกเหนือจากนั้นจะเป็นสัญญาญห้ามผ่าน
 STR_BUILD_SIGNAL_SEMAPHORE_EXIT_TOOLTIP                         :{BLACK}เสาอาณัติสัญญาณขาออก (แบบหางปลา){}มีผลแบบเดียวกับเสาอาณัติสัญญาณปกติแต่จำเป็นที่จะต้องเปิดสีที่ถูกต้องตรงขาเข้าและสัญญาณต่อเนื่องที่อยู่ก่อนหน้านั้น
@@ -2599,6 +2583,7 @@ STR_FOUND_TOWN_INITIAL_SIZE_TOOLTIP                             :{BLACK}เล�
 STR_FOUND_TOWN_CITY                                             :{BLACK}เมืองใหญ่
 STR_FOUND_TOWN_CITY_TOOLTIP                                     :{BLACK}เมืองใหญ่ขยายตัวเร็วกว่าเมืองเล็ก{}เลือกค่านี้ เมืองที่สร้างจะใหญ่ขึ้นเมื่อสร้างใหม่
 
+
 STR_FOUND_TOWN_ROAD_LAYOUT                                      :{YELLOW}รูปแบบถนนของเมือง:
 STR_FOUND_TOWN_SELECT_LAYOUT_TOOLTIP                            :{BLACK}เลือกรูปแบบถนนสำหรับเมืองนี้
 STR_FOUND_TOWN_SELECT_LAYOUT_ORIGINAL                           :{BLACK}ดั้งเดิม
@@ -2657,7 +2642,7 @@ STR_LAND_AREA_INFORMATION_AIRPORT_CLASS                         :{BLACK}ระ�
 STR_LAND_AREA_INFORMATION_AIRPORT_NAME                          :{BLACK}ชื่อท่าอากาศยาน: {LTBLUE}{STRING}
 STR_LAND_AREA_INFORMATION_AIRPORTTILE_NAME                      :{BLACK}ชื่อท่าอากาศยาน: {LTBLUE}{STRING}
 STR_LAND_AREA_INFORMATION_NEWGRF_NAME                           :{BLACK}NewGRF: {LTBLUE}{STRING}
-STR_LAND_AREA_INFORMATION_CARGO_ACCEPTED                        :{BLACK}สินค้าที่รับ: {LTBLUE}
+STR_LAND_AREA_INFORMATION_CARGO_ACCEPTED                        :{BLACK}สินค้าที่รับ: {LTBLUE}{STRING}
 STR_LAND_AREA_INFORMATION_CARGO_EIGHTS                          :({COMMA}/8 {STRING})
 STR_LANG_AREA_INFORMATION_ROAD_TYPE                             :{BLACK}ประเภทของถนน: {LTBLUE}{STRING}
 STR_LANG_AREA_INFORMATION_TRAM_TYPE                             :{BLACK}ประเภทรถราง: {LTBLUE}{STRING}
@@ -2877,6 +2862,8 @@ STR_MAPGEN_SOUTHWEST                                            :{BLACK}ตะ�
 STR_MAPGEN_BORDER_FREEFORM                                      :{BLACK}ไม่ยึดติดรูปแบบ
 STR_MAPGEN_BORDER_WATER                                         :{BLACK}น้ำ
 STR_MAPGEN_BORDER_RANDOM                                        :{BLACK}สุ่ม
+
+###length 3
 STR_MAPGEN_BORDER_RANDOMIZE                                     :{BLACK}สุ่ม
 STR_MAPGEN_BORDER_MANUAL                                        :{BLACK}ปรับแต่งเอง
 
@@ -3099,7 +3086,6 @@ STR_EDIT_SIGN_SIGN_OSKTITLE                                     :{BLACK}กร�
 # Town directory window
 STR_TOWN_DIRECTORY_NONE                                         :{ORANGE}- ไม่มี -
 STR_TOWN_DIRECTORY_TOWN                                         :{ORANGE}{TOWN}{BLACK} ({COMMA})
-STR_TOWN_DIRECTORY_CITY                                         :{ORANGE}{TOWN}{YELLOW} (เมือง){BLACK} ({COMMA})
 STR_TOWN_DIRECTORY_LIST_TOOLTIP                                 :{BLACK}ชื่อเมือง - คลิ๊กเมาส์ที่ชื่อเมือง
 STR_TOWN_POPULATION                                             :{BLACK}ประชากรโดยรวมทั้งแผนที่: {COMMA}
 
@@ -3167,6 +3153,7 @@ STR_GOALS_PROGRESS_COMPLETE                                     :{GREEN}{STRING}
 STR_GOALS_TOOLTIP_CLICK_ON_SERVICE_TO_CENTER                    :{BLACK}คลิ๊กเลือกที่เป้าหมายเพื่อพาไปยังจุดเริ่มต้นที่จะทำตามเป้าหมาย
 
 # Goal question window
+###length 4
 STR_GOAL_QUESTION_CAPTION_QUESTION                              :{BLACK}คำถาม
 STR_GOAL_QUESTION_CAPTION_INFORMATION                           :{BLACK}ข้อมูลต่างๆ
 STR_GOAL_QUESTION_CAPTION_WARNING                               :{BLACK}คำเตือน
@@ -3272,14 +3259,12 @@ STR_CARGO_RATING_EXCELLENT                                      :ยอดเย
 STR_CARGO_RATING_OUTSTANDING                                    :เกินความคาดหมาย
 
 STR_STATION_VIEW_CENTER_TOOLTIP                                 :{BLACK}จุดศูนย์กลางมุมมองสถานี
-STR_STATION_VIEW_RENAME_TOOLTIP                                 :{BLACK}เปลี่ยนชื่อสถานี
 
 STR_STATION_VIEW_SCHEDULED_TRAINS_TOOLTIP                       :{BLACK}แสดงขบวนรถไฟที่มีรายการเข้าจอดที่สถานีนี้
 STR_STATION_VIEW_SCHEDULED_ROAD_VEHICLES_TOOLTIP                :{BLACK}แสดงยานพาหนะทางบกที่มีรายการเข้าจอดที่สถานีนี้
 STR_STATION_VIEW_SCHEDULED_AIRCRAFT_TOOLTIP                     :{BLACK}แสดงอากาศยานที่มีรายการลงจอดจอดที่สถานีนี้
 STR_STATION_VIEW_SCHEDULED_SHIPS_TOOLTIP                        :{BLACK}แสดงเรือที่มีรายการเข้าเทียบท่าที่ท่านี้
 
-STR_STATION_VIEW_RENAME_STATION_CAPTION                         :เปลี่ยนชื่อสถานี/พื้นที่รับส่งสินค้า
 
 STR_STATION_VIEW_CLOSE_AIRPORT                                  :{BLACK}ปิดท่าอากาศยาน
 STR_STATION_VIEW_CLOSE_AIRPORT_TOOLTIP                          :{BLACK}ไม่ให้เที่ยวบินมาลงจอดที่ท่าอากาศยานนี้
@@ -3287,11 +3272,9 @@ STR_STATION_VIEW_CLOSE_AIRPORT_TOOLTIP                          :{BLACK}ไม�
 # Waypoint/buoy view window
 STR_WAYPOINT_VIEW_CAPTION                                       :{WHITE}{WAYPOINT}
 STR_WAYPOINT_VIEW_CENTER_TOOLTIP                                :{BLACK}จุดศูนย์กลางมุมมองสถานี
-STR_WAYPOINT_VIEW_CHANGE_WAYPOINT_NAME                          :{BLACK}เปลี่ยนชื่อ Waypoint
 STR_BUOY_VIEW_CENTER_TOOLTIP                                    :{BLACK}จุดศูนย์กลางมุมมองสถานี
 STR_BUOY_VIEW_RENAME_TOOLTIP                                    :{BLACK}เปลี่ยนชื่อทุ่มลอยน้ำ
 
-STR_EDIT_WAYPOINT_NAME                                          :{WHITE}เปลี่ยนชื่อ Waypoint
 
 # Finances window
 STR_FINANCES_CAPTION                                            :{WHITE} สภาวะการเงินของ {COMPANY}{BLACK}{COMPANY_NUM}
@@ -3383,7 +3366,7 @@ STR_COMPANY_INFRASTRUCTURE_VIEW_AIRPORTS                        :{WHITE}ท่�
 # Industry directory
 STR_INDUSTRY_DIRECTORY_NONE                                     :{ORANGE}- ไม่มี -
 STR_INDUSTRY_DIRECTORY_ITEM_NOPROD                              :{ORANGE}{INDUSTRY}
-STR_INDUSTRY_DIRECTORY_ITEM_PROD3                               :{ORANGE}{INDUSTRY} {STRING}, {STRING}, {STRING}
+STR_INDUSTRY_DIRECTORY_ITEM_PROD3                               :{ORANGE}{INDUSTRY} {BLACK}{STRING}, {STRING}, {STRING}
 STR_INDUSTRY_DIRECTORY_LIST_TOOLTIP                             :{BLACK}ชื่อของอุตสาหกรรม - คลิ๊กที่ชื่อเพื่อไปยังจุดศูนย์กลาง
 STR_INDUSTRY_DIRECTORY_PRODUCED_CARGO_FILTER                    :{BLACK}ผลผลิตที่ได้: {SILVER}{STRING}
 STR_INDUSTRY_DIRECTORY_FILTER_NONE                              :ไม่มี
@@ -3396,7 +3379,7 @@ STR_INDUSTRY_VIEW_LOCATION_TOOLTIP                              :{BLACK}กด�
 STR_INDUSTRY_VIEW_PRODUCTION_LEVEL                              :{BLACK}ระดับการผลิต: {YELLOW}{COMMA}%
 STR_INDUSTRY_VIEW_INDUSTRY_ANNOUNCED_CLOSURE                    :{YELLOW}อุตสาหกรรมนี้ได้มีการประกาศปิดตัวลงอย่างเป็นทางการ!
 
-STR_INDUSTRY_VIEW_REQUIRES_N_CARGO                              :{BLACK}ต้องการ: {YELLOW}{STRING}{STRING}
+STR_INDUSTRY_VIEW_REQUIRES_N_CARGO                              :{BLACK}ต้องการ: {YELLOW}{STRING}
 
 
 STR_CONFIG_GAME_PRODUCTION                                      :{WHITE}ปรับเปลี่ยนปริมาณผลผลิต (ระหว่าง 8 ถึง 2040)
@@ -3506,6 +3489,8 @@ STR_PURCHASE_INFO_ALL_BUT                                       :ทั้งห
 STR_PURCHASE_INFO_MAX_TE                                        :{BLACK}กำลังลากจูงสูงสุด: {GOLD}{FORCE}
 STR_PURCHASE_INFO_AIRCRAFT_RANGE                                :{BLACK}พิสัยทำการ: {GOLD}{COMMA} ช่อง
 STR_PURCHASE_INFO_AIRCRAFT_TYPE                                 :{BLACK}ชนิดของเครื่องบิน: {GOLD}{STRING}
+
+# Vehicle sort details
 
 ###length 3
 
@@ -3657,6 +3642,7 @@ STR_DEPOT_SELL_CONFIRMATION_TEXT                                :{YELLOW}คุ�
 STR_ENGINE_PREVIEW_CAPTION                                      :{WHITE}ข้อความจากผู้ผลิตยานพาหนะ
 STR_ENGINE_PREVIEW_MESSAGE                                      :{GOLD}เราได้ออกแบบ {STRING} ใหม่ - หากคุณต้องการที่จะนำไปทดลองใช้ เราจะให้คุณนำไปใช้งานก่อนที่จะนำออกไปจำหน่ายในตลาดปกติ{}คุณต้องการนำไปทดลองใช้หรือไม่ ?
 
+
 STR_ENGINE_PREVIEW_RAILROAD_LOCOMOTIVE                          :หัวรถจักร
 STR_ENGINE_PREVIEW_ELRAIL_LOCOMOTIVE                            :หัวรถจักรของรถไฟฟ้า
 STR_ENGINE_PREVIEW_MONORAIL_LOCOMOTIVE                          :รถไฟรางเดี่ยว
@@ -3804,7 +3790,6 @@ STR_VEHICLE_INFO_WEIGHT_POWER_MAX_SPEED                         :{BLACK}น้�
 STR_VEHICLE_INFO_WEIGHT_POWER_MAX_SPEED_MAX_TE                  :{BLACK}น้ำหนัก: {LTBLUE}{WEIGHT_SHORT} {BLACK}พลังขับเคลื่อน: {LTBLUE}{POWER}{BLACK} ความเร็วสูงสุด: {LTBLUE}{VELOCITY} {BLACK}กำลังลากจูงสูงสุด: {LTBLUE}{FORCE}
 
 STR_VEHICLE_INFO_PROFIT_THIS_YEAR_LAST_YEAR                     :{BLACK}ผลประกอบการปีนี้: {LTBLUE}{CURRENCY_LONG} (ปีที่แล้ว: {CURRENCY_LONG})
-STR_VEHICLE_INFO_RELIABILITY_BREAKDOWNS                         :{BLACK}ประสิทธิภาพ: {LTBLUE}{COMMA}%  {BLACK}เกิดการชำรุดหลังจากเข้าซ่อมบำรุงครั้งที่แล้ว: {LTBLUE}{COMMA} {BLACK}ครั้ง
 
 STR_VEHICLE_INFO_BUILT_VALUE                                    :{LTBLUE}{ENGINE} {BLACK}สร้างเมื่อ: {LTBLUE}{NUM}{BLACK} มูลค่า: {LTBLUE}{CURRENCY_LONG}
 STR_VEHICLE_INFO_NO_CAPACITY                                    :{BLACK}บรรทุก: {LTBLUE}ไม่มี{STRING}
@@ -3846,7 +3831,7 @@ STR_VEHICLE_DETAILS_TRAIN_CAPACITIES_TOOLTIP                    :{BLACK}แส�
 STR_VEHICLE_DETAIL_TAB_TOTAL_CARGO                              :{BLACK}แสดงความจุรวมทั้งหมดของขบวนรถ
 STR_VEHICLE_DETAILS_TRAIN_TOTAL_CARGO_TOOLTIP                   :{BLACK}แสดงความจุรวมทั้งหมดของขบวนรถ แยกตามประเภทสินค้า
 
-STR_VEHICLE_DETAILS_TRAIN_ARTICULATED_RV_CAPACITY               :{BLACK}ความจุ: {LTBLUE}
+STR_VEHICLE_DETAILS_TRAIN_ARTICULATED_RV_CAPACITY               :{BLACK}ความจุ: {LTBLUE}{STRING}
 
 # Vehicle refit
 STR_REFIT_CAPTION                                               :{WHITE}{VEHICLE} (ดัดแปลง)
@@ -3926,7 +3911,7 @@ STR_ORDER_DROP_HALT_DEPOT                                       :หยุด
 STR_ORDER_CONDITIONAL_VARIABLE_TOOLTIP                          :{BLACK}ข้อมูลยานพาหนะที่จะข้ามไป
 
 # Conditional order variables, must follow order of OrderConditionVariable enum
-###length 8
+###length 9
 STR_ORDER_CONDITIONAL_LOAD_PERCENTAGE                           :ปริมาณการบรรทุกรวม
 STR_ORDER_CONDITIONAL_RELIABILITY                               :ประสิทธิภาพของพาหนะ
 STR_ORDER_CONDITIONAL_MAX_SPEED                                 :ความเร็วสูงสุด
@@ -4277,7 +4262,7 @@ STR_ERROR_CAN_T_CHANGE_PRESIDENT                                :{WHITE}ไม�
 
 STR_ERROR_MAXIMUM_PERMITTED_LOAN                                :{WHITE}... ปริมาณเงินสูงสุดที่สามารถกู้ได้ {CURRENCY_LONG}
 STR_ERROR_CAN_T_BORROW_ANY_MORE_MONEY                           :{WHITE}ไม่สามารถกู้เงินเพิ่มได้จากนี้แล้ว...
-STR_ERROR_LOAN_ALREADY_REPAYED                                  :{WHITE}... ไม่มีหนี้ที่ค้างชำระแล้ว
+STR_ERROR_LOAN_ALREADY_REPAID                                   :{WHITE}... ไม่มีหนี้ที่ค้างชำระแล้ว
 STR_ERROR_CURRENCY_REQUIRED                                     :{WHITE}... {CURRENCY_LONG} ต้องการ
 STR_ERROR_CAN_T_REPAY_LOAN                                      :{WHITE}ไม่สามารถใช้หนี้ได้...
 STR_ERROR_INSUFFICIENT_FUNDS                                    :{WHITE}ไม่สามารถส่งเงินได้ นี่คือเงินกู้ที่มาจากธนาคาร...
@@ -4289,7 +4274,6 @@ STR_ERROR_CAN_T_GENERATE_TOWN                                   :{WHITE}ไม�
 STR_ERROR_CAN_T_RENAME_TOWN                                     :{WHITE}ไม่สามารถเปลี่ยนชื่อเมืองได้...
 STR_ERROR_CAN_T_FOUND_TOWN_HERE                                 :{WHITE}ไม่สามารถสร้างเมืองที่นี่ได้...
 STR_ERROR_CAN_T_EXPAND_TOWN                                     :{WHITE}ไม่สามารถขยายเมืองได้
-STR_ERROR_TOO_CLOSE_TO_EDGE_OF_MAP_SUB                          :{WHITE}... ติดกับขอบแผนที่มากเกินไป
 STR_ERROR_TOO_CLOSE_TO_ANOTHER_TOWN                             :{WHITE}... ใกล้กับเมืองอื่นมากเกินไป
 STR_ERROR_TOO_MANY_TOWNS                                        :{WHITE}... มีเมืองมากเกินไป
 STR_ERROR_NO_SPACE_FOR_TOWN                                     :{WHITE}... มีพื้นที่บนแผนที่ไม่มากพอ
@@ -4363,11 +4347,11 @@ STR_ERROR_MUST_DEMOLISH_AIRPORT_FIRST                           :{WHITE}ต้�
 STR_ERROR_WAYPOINT_ADJOINS_MORE_THAN_ONE_EXISTING               :{WHITE}มากเกิน 1 สำหรับ Waypoint
 STR_ERROR_TOO_CLOSE_TO_ANOTHER_WAYPOINT                         :{WHITE}ใกล้กับ Waypoint อื่นมากเกินไป
 
-STR_ERROR_CAN_T_BUILD_TRAIN_WAYPOINT                            :{WHITE}ไม่สามารถสร้าง Waypoint ที่นี่ได้...
+STR_ERROR_CAN_T_BUILD_RAIL_WAYPOINT                             :{WHITE}ไม่สามารถสร้าง Waypoint ที่นี่ได้...
 STR_ERROR_CAN_T_POSITION_BUOY_HERE                              :{WHITE}ไม่สามารถวางทุ่นลอยน้ำที่นี่ได้...
 STR_ERROR_CAN_T_CHANGE_WAYPOINT_NAME                            :{WHITE}ไม่สามารถเปลี่ยนชื่อ Waypoint...
 
-STR_ERROR_CAN_T_REMOVE_TRAIN_WAYPOINT                           :{WHITE}ไม่สามารถลบ Waypoint ได้...
+STR_ERROR_CAN_T_REMOVE_RAIL_WAYPOINT                            :{WHITE}ไม่สามารถลบ Waypoint ได้...
 STR_ERROR_MUST_REMOVE_RAILWAYPOINT_FIRST                        :{WHITE}ต้องลบ Waypoint ก่อน
 STR_ERROR_BUOY_IN_THE_WAY                                       :{WHITE}... มีทุ่นอยู่ระหว่างทาง
 STR_ERROR_BUOY_IS_IN_USE                                        :{WHITE}... เป็นทุ่นของบริษัทอื่น

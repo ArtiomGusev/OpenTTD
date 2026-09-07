@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file newgrf_badge.cpp Functionality for NewGRF badges. */
@@ -10,7 +10,6 @@
 #include "stdafx.h"
 #include "newgrf.h"
 #include "newgrf_badge.h"
-#include "newgrf_badge_config.h"
 #include "newgrf_badge_type.h"
 #include "newgrf_spritegroup.h"
 #include "stringfilter_type.h"
@@ -131,9 +130,9 @@ Badge *GetBadgeByLabel(std::string_view label)
 }
 
 /**
- * Get the badge class of a badge label.
- * @param label Label to get class of.
- * @returns Badge class index of label.
+ * Get the badge for a badge class index.
+ * @param class_index Index of the badge class.
+ * @return Class badge for the class index, or nullptr if not present.
  */
 Badge *GetClassBadge(BadgeClassID class_index)
 {
@@ -178,10 +177,10 @@ struct BadgeResolverObject : public ResolverObject {
 
 	BadgeResolverObject(const Badge &badge, GrfSpecFeature feature, std::optional<TimerGameCalendar::Date> introduction_date, CallbackID callback = CBID_NO_CALLBACK, uint32_t callback_param1 = 0, uint32_t callback_param2 = 0);
 
-	ScopeResolver *GetScope(VarSpriteGroupScope scope = VSG_SCOPE_SELF, uint8_t relative = 0) override
+	ScopeResolver *GetScope(VarSpriteGroupScope scope = VarSpriteGroupScope::Self, uint8_t relative = 0) override
 	{
 		switch (scope) {
-			case VSG_SCOPE_SELF: return &this->self_scope;
+			case VarSpriteGroupScope::Self: return &this->self_scope;
 			default: return ResolverObject::GetScope(scope, relative);
 		}
 	}
@@ -192,7 +191,7 @@ struct BadgeResolverObject : public ResolverObject {
 
 GrfSpecFeature BadgeResolverObject::GetFeature() const
 {
-	return GSF_BADGES;
+	return GrfSpecFeature::Badges;
 }
 
 uint32_t BadgeResolverObject::GetDebugID() const
@@ -212,8 +211,8 @@ uint32_t BadgeResolverObject::GetDebugID() const
 BadgeResolverObject::BadgeResolverObject(const Badge &badge, GrfSpecFeature feature, std::optional<TimerGameCalendar::Date> introduction_date, CallbackID callback, uint32_t callback_param1, uint32_t callback_param2)
 		: ResolverObject(badge.grf_prop.grffile, callback, callback_param1, callback_param2), self_scope(*this, badge, introduction_date)
 {
-	assert(feature <= GSF_END);
-	this->root_spritegroup = this->self_scope.badge.grf_prop.GetFirstSpriteGroupOf({feature, GSF_DEFAULT});
+	assert(feature <= GrfSpecFeature::End);
+	this->root_spritegroup = this->self_scope.badge.grf_prop.GetFirstSpriteGroupOf({feature, GrfSpecFeature::Default});
 }
 
 /**
@@ -233,6 +232,8 @@ uint32_t GetBadgeVariableResult(const GRFFile &grffile, std::span<const BadgeID>
 
 /**
  * Mark a badge a seen (used) by a feature.
+ * @param index The badge's identifier.
+ * @param feature The feature the badge is used for.
  */
 void MarkBadgeSeen(BadgeID index, GrfSpecFeature feature)
 {
@@ -271,6 +272,7 @@ void ApplyBadgeFeaturesToClassBadges()
 		Badge *class_badge = GetClassBadge(badge.class_index);
 		assert(class_badge != nullptr);
 		class_badge->features.Set(badge.features);
+		if (badge.name != STR_NULL) class_badge->flags.Set(BadgeFlag::HasText);
 	}
 }
 
@@ -297,7 +299,7 @@ PalSpriteID GetBadgeSprite(const Badge &badge, GrfSpecFeature feature, std::opti
  * Create a list of used badge classes for a feature.
  * @param feature GRF feature being used.
  */
-UsedBadgeClasses::UsedBadgeClasses(GrfSpecFeature feature)
+UsedBadgeClasses::UsedBadgeClasses(GrfSpecFeature feature) : feature(feature)
 {
 	for (auto index : _badges.classes) {
 		Badge *class_badge = GetBadge(index);
@@ -340,4 +342,17 @@ BadgeTextFilter::BadgeTextFilter(StringFilter &filter, GrfSpecFeature feature)
 bool BadgeTextFilter::Filter(std::span<const BadgeID> badges) const
 {
 	return std::ranges::any_of(badges, [this](const BadgeID &badge) { return std::ranges::binary_search(this->badges, badge); });
+}
+
+/**
+ * Test if the given badges matches the filtered badge list.
+ * @param badges List of badges.
+ * @return true iff all required badges are present in the provided list.
+ */
+bool BadgeDropdownFilter::Filter(std::span<const BadgeID> badges) const
+{
+	if (this->badges.empty()) return true;
+
+	/* We want all filtered badges to match. */
+	return std::ranges::all_of(this->badges, [&badges](const auto &badge) { return std::ranges::find(badges, badge.second) != std::end(badges); });
 }

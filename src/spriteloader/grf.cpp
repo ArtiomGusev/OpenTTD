@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file grf.cpp Reading graphics data from (New)GRF files. */
@@ -13,9 +13,6 @@
 #include "../settings_type.h"
 #include "../strings_func.h"
 #include "../error.h"
-#include "../core/math_func.hpp"
-#include "../core/alloc_type.hpp"
-#include "../core/bitmath_func.hpp"
 #include "../spritecache.h"
 #include "grf.hpp"
 
@@ -28,7 +25,7 @@ extern const uint8_t _palmap_w2d[];
 /**
  * We found a corrupted sprite. This means that the sprite itself
  * contains invalid data or is too small for the given dimensions.
- * @param file_slot the file the errored sprite is in
+ * @param file The file the errored sprite is in.
  * @param file_pos the location in the file of the errored sprite
  * @param line the line where the error occurs.
  * @return always false (to tell loading the sprite failed)
@@ -37,7 +34,7 @@ static bool WarnCorruptSprite(const SpriteFile &file, size_t file_pos, int line)
 {
 	static uint8_t warning_level = 0;
 	if (warning_level == 0) {
-		ShowErrorMessage(GetEncodedString(STR_NEWGRF_ERROR_CORRUPT_SPRITE, file.GetSimplifiedFilename()), {}, WL_ERROR);
+		ShowErrorMessage(GetEncodedString(STR_NEWGRF_ERROR_CORRUPT_SPRITE, file.GetSimplifiedFilename()), {}, WarningLevel::Error);
 	}
 	Debug(sprite, warning_level, "[{}] Loading corrupted sprite from {} at position {}", line, file.GetSimplifiedFilename(), file_pos);
 	warning_level = 6;
@@ -256,7 +253,7 @@ static ZoomLevels LoadSpriteV1(SpriteLoader::SpriteCollection &sprite, SpriteFil
 	return {};
 }
 
-static ZoomLevels LoadSpriteV2(SpriteLoader::SpriteCollection &sprite, SpriteFile &file, size_t file_pos, SpriteType sprite_type, bool load_32bpp, uint8_t control_flags, ZoomLevels &avail_8bpp, ZoomLevels &avail_32bpp)
+static ZoomLevels LoadSpriteV2(SpriteLoader::SpriteCollection &sprite, SpriteFile &file, size_t file_pos, SpriteType sprite_type, bool load_32bpp, SpriteCacheCtrlFlags control_flags, ZoomLevels &avail_8bpp, ZoomLevels &avail_32bpp)
 {
 	static const ZoomLevel zoom_lvl_map[6] = {ZoomLevel::Normal, ZoomLevel::In4x, ZoomLevel::In2x, ZoomLevel::Out2x, ZoomLevel::Out4x, ZoomLevel::Out8x};
 
@@ -283,7 +280,7 @@ static ZoomLevels LoadSpriteV2(SpriteLoader::SpriteCollection &sprite, SpriteFil
 
 		uint8_t zoom = file.ReadByte();
 
-		bool is_wanted_colour_depth = (colour != SpriteComponents{} && (load_32bpp ? colour != SpriteComponent::Palette : colour == SpriteComponent::Palette));
+		bool is_wanted_colour_depth = (colour.Any() && (load_32bpp ? colour != SpriteComponent::Palette : colour == SpriteComponent::Palette));
 		bool is_wanted_zoom_lvl;
 
 		if (sprite_type != SpriteType::MapGen) {
@@ -295,11 +292,11 @@ static ZoomLevels LoadSpriteV2(SpriteLoader::SpriteCollection &sprite, SpriteFil
 				is_wanted_zoom_lvl = true;
 				ZoomLevel zoom_min = sprite_type == SpriteType::Font ? ZoomLevel::Min : _settings_client.gui.sprite_zoom_min;
 				if (zoom_min >= ZoomLevel::In2x &&
-						HasBit(control_flags, load_32bpp ? SCCF_ALLOW_ZOOM_MIN_2X_32BPP : SCCF_ALLOW_ZOOM_MIN_2X_PAL) && zoom_lvl < ZoomLevel::In2x) {
+						control_flags.Test(load_32bpp ? SpriteCacheCtrlFlag::AllowZoomMin2x32bpp : SpriteCacheCtrlFlag::AllowZoomMin2xPal) && zoom_lvl < ZoomLevel::In2x) {
 					is_wanted_zoom_lvl = false;
 				}
 				if (zoom_min >= ZoomLevel::Normal &&
-						HasBit(control_flags, load_32bpp ? SCCF_ALLOW_ZOOM_MIN_1X_32BPP : SCCF_ALLOW_ZOOM_MIN_1X_PAL) && zoom_lvl < ZoomLevel::Normal) {
+						control_flags.Test(load_32bpp ? SpriteCacheCtrlFlag::AllowZoomMin1x32bpp : SpriteCacheCtrlFlag::AllowZoomMin1xPal) && zoom_lvl < ZoomLevel::Normal) {
 					is_wanted_zoom_lvl = false;
 				}
 			} else {
@@ -359,7 +356,7 @@ static ZoomLevels LoadSpriteV2(SpriteLoader::SpriteCollection &sprite, SpriteFil
 	return loaded_sprites;
 }
 
-ZoomLevels SpriteLoaderGrf::LoadSprite(SpriteLoader::SpriteCollection &sprite, SpriteFile &file, size_t file_pos, SpriteType sprite_type, bool load_32bpp, uint8_t control_flags, ZoomLevels &avail_8bpp, ZoomLevels &avail_32bpp)
+ZoomLevels SpriteLoaderGrf::LoadSprite(SpriteLoader::SpriteCollection &sprite, SpriteFile &file, size_t file_pos, SpriteType sprite_type, bool load_32bpp, SpriteCacheCtrlFlags control_flags, ZoomLevels &avail_8bpp, ZoomLevels &avail_32bpp)
 {
 	if (this->container_ver >= 2) {
 		return LoadSpriteV2(sprite, file, file_pos, sprite_type, load_32bpp, control_flags, avail_8bpp, avail_32bpp);

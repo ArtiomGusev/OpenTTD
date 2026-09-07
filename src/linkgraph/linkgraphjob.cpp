@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file linkgraphjob.cpp Definition of link graph job classes used for cargo distribution. */
@@ -28,11 +28,13 @@ INSTANTIATE_POOL_METHODS(LinkGraphJob)
 
 /**
  * Create a link graph job from a link graph. The link graph will be copied so
- * that the calculations don't interfer with the normal operations on the
+ * that the calculations don't interfere with the normal operations on the
  * original. The job is immediately started.
+ * @param index Index into the LinkGraphJob pool.
  * @param orig Original LinkGraph to be copied.
  */
-LinkGraphJob::LinkGraphJob(const LinkGraph &orig) :
+LinkGraphJob::LinkGraphJob(LinkGraphJobID index, const LinkGraph &orig) :
+		LinkGraphJobPool::PoolItem<&_link_graph_job_pool>(index),
 		/* Copying the link graph here also copies its index member.
 		 * This is on purpose. */
 		link_graph(orig),
@@ -42,13 +44,13 @@ LinkGraphJob::LinkGraphJob(const LinkGraph &orig) :
 }
 
 /**
- * Erase all flows originating at a specific node.
- * @param from Node to erase flows for.
+ * Erase all flows originating at a specific station.
+ * @param from StationID to erase flows for.
  */
-void LinkGraphJob::EraseFlows(NodeID from)
+void LinkGraphJob::EraseFlows(StationID from)
 {
 	for (NodeID node_id = 0; node_id < this->Size(); ++node_id) {
-		(*this)[node_id].flows.erase(StationID{from});
+		(*this)[node_id].flows.erase(from);
 	}
 }
 
@@ -106,7 +108,7 @@ LinkGraphJob::~LinkGraphJob()
 		/* The station can have been deleted. Remove all flows originating from it then. */
 		Station *st = Station::GetIfValid(from.base.station);
 		if (st == nullptr) {
-			this->EraseFlows(node_id);
+			this->EraseFlows(from.base.station);
 			continue;
 		}
 
@@ -114,7 +116,7 @@ LinkGraphJob::~LinkGraphJob()
 		 * sure that everything is still consistent or ignore it otherwise. */
 		GoodsEntry &ge = st->goods[this->Cargo()];
 		if (ge.link_graph != this->link_graph.index || ge.node != node_id) {
-			this->EraseFlows(node_id);
+			this->EraseFlows(from.base.station);
 			continue;
 		}
 
@@ -132,11 +134,11 @@ LinkGraphJob::~LinkGraphJob()
 					!(*lg)[node_id].HasEdgeTo(dest_id) ||
 					(*lg)[node_id][dest_id].LastUpdate() == EconomyTime::INVALID_DATE) {
 				/* Edge has been removed. Delete flows. */
-				StationIDStack erased = flows.DeleteFlows(to);
+				std::vector<StationID> erased = flows.DeleteFlows(to);
 				/* Delete old flows for source stations which have been deleted
 				 * from the new flows. This avoids flow cycles between old and
 				 * new flows. */
-				while (!erased.IsEmpty()) geflows.erase(StationID{erased.Pop()});
+				for (const StationID &station : erased) geflows.erase(station);
 			} else if ((*lg)[node_id][dest_id].last_unrestricted_update == EconomyTime::INVALID_DATE) {
 				/* Edge is fully restricted. */
 				flows.RestrictFlows(to);
@@ -150,7 +152,7 @@ LinkGraphJob::~LinkGraphJob()
 		for (FlowStatMap::iterator it(geflows.begin()); it != geflows.end();) {
 			FlowStatMap::iterator new_it = flows.find(it->first);
 			if (new_it == flows.end()) {
-				if (_settings_game.linkgraph.GetDistributionType(this->Cargo()) != DT_MANUAL) {
+				if (_settings_game.linkgraph.GetDistributionType(this->Cargo()) != DistributionType::Manual) {
 					it->second.Invalidate();
 					++it;
 				} else {
@@ -170,7 +172,7 @@ LinkGraphJob::~LinkGraphJob()
 		}
 		geflows.insert(flows.begin(), flows.end());
 		if (ge.GetData().IsEmpty()) ge.ClearData();
-		InvalidateWindowData(WC_STATION_VIEW, st->index, this->Cargo());
+		InvalidateWindowData(WindowClass::StationView, st->index, this->Cargo());
 	}
 }
 

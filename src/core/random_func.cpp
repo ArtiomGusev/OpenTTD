@@ -2,14 +2,13 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file random_func.cpp Implementation of the pseudo random generator. */
 
 #include "../stdafx.h"
 #include "random_func.hpp"
-#include "bitmath_func.hpp"
 #include "../debug.h"
 
 #ifdef RANDOM_DEBUG
@@ -72,7 +71,7 @@ void SetRandomSeed(uint32_t seed)
 #ifdef RANDOM_DEBUG
 uint32_t Random(const std::source_location location)
 {
-	if (_networking && (!_network_server || (NetworkClientSocket::IsValidID(0) && NetworkClientSocket::Get(0)->status != NetworkClientSocket::STATUS_INACTIVE))) {
+	if (_networking && (!_network_server || (NetworkClientSocket::IsValidID(0) && NetworkClientSocket::Get(0)->status != NetworkClientSocket::ClientStatus::Inactive))) {
 		Debug(random, 0, "{:08x}; {:02x}; {:04x}; {:02x}; {}:{}", TimerGameEconomy::date, TimerGameEconomy::date_fract, _frame_counter, _current_company, location.file_name(), location.line());
 	}
 

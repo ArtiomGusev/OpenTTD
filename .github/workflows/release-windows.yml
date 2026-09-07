@@ -30,7 +30,7 @@ jobs:
 
     steps:
     - name: Download source
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: internal-source
 
@@ -45,24 +45,15 @@ jobs:
     - name: Enable Rust cache
       uses: Swatinem/rust-cache@v2
 
-    - name: Setup vcpkg caching
-      uses: actions/github-script@v7
-      with:
-        script: |
-          core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-          core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
-          core.exportVariable('VCPKG_BINARY_SOURCES', 'clear;x-gha,readwrite')
-
-    - name: Install vcpkg
-      run: |
-        git clone https://github.com/microsoft/vcpkg ${{ runner.temp }}\vcpkg
-        ${{ runner.temp }}\vcpkg\bootstrap-vcpkg.bat -disableMetrics
+    - name: Setup vcpkg
+      id: vcpkg
+      uses: OpenTTD/actions/setup-vcpkg@v7
 
     - name: Install dependencies
       shell: bash
       run: |
         echo "::group::Install choco dependencies"
-        choco install pandoc
+        choco install pandoc nsis
         echo "::endgroup::"
 
         echo "::group::Install breakpad dependencies"
@@ -111,7 +102,7 @@ jobs:
         cmake ${GITHUB_WORKSPACE} \
           -GNinja \
           -DVCPKG_TARGET_TRIPLET=${{ matrix.arch }}-windows-static \
-          -DCMAKE_TOOLCHAIN_FILE="${{ runner.temp }}\vcpkg\scripts\buildsystems\vcpkg.cmake" \
+          -DCMAKE_TOOLCHAIN_FILE="${{ steps.vcpkg.outputs.vcpkg-cmake }}" \
           -DOPTION_USE_NSIS=ON \
           -DHOST_BINARY_DIR=${GITHUB_WORKSPACE}/build-host \
           -DCMAKE_BUILD_TYPE=RelWithDebInfo \
@@ -141,7 +132,7 @@ jobs:
         cmake ${GITHUB_WORKSPACE} \
           -GNinja \
           -DVCPKG_TARGET_TRIPLET=${{ matrix.arch }}-windows-static \
-          -DCMAKE_TOOLCHAIN_FILE="${{ runner.temp }}\vcpkg\scripts\buildsystems\vcpkg.cmake" \
+          -DCMAKE_TOOLCHAIN_FILE="${{ steps.vcpkg.outputs.vcpkg-cmake }}" \
           -DHOST_BINARY_DIR=${GITHUB_WORKSPACE}/build-host \
           -DCMAKE_BUILD_TYPE=RelWithDebInfo \
           -DOPTION_SURVEY_KEY=${{ inputs.survey_key }} \
@@ -202,14 +193,14 @@ jobs:
         AZURE_CODESIGN_PROFILE_NAME: ${{ secrets.AZURE_CODESIGN_PROFILE_NAME }}
 
     - name: Store bundles
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: openttd-windows-${{ matrix.arch }}
         path: build/bundles
         retention-days: 5
 
     - name: Store symbols
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: symbols-windows-${{ matrix.arch }}
         path: build/symbols

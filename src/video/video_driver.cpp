@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file video_driver.cpp Common code between video driver implementations. */
@@ -138,7 +138,7 @@ void VideoDriver::Tick()
 			this->InputLoop();
 
 			/* Check if the fast-forward button is still pressed. */
-			if (fast_forward_key_pressed && !_networking && _game_mode != GM_MENU) {
+			if (fast_forward_key_pressed && !_networking && _game_mode != GameMode::Menu) {
 				ChangeGameSpeed(true);
 				this->fast_forward_via_key = true;
 			} else if (this->fast_forward_via_key) {
@@ -149,7 +149,7 @@ void VideoDriver::Tick()
 			::InputLoop();
 
 			/* Prevent drawing when switching mode, as windows can be removed when they should still appear. */
-			if (_game_mode == GM_BOOTSTRAP || _switch_mode == SM_NONE || HasModalProgress()) {
+			if (_game_mode == GameMode::Bootstrap || _switch_mode == SwitchMode::None || HasModalProgress()) {
 				::UpdateWindows();
 			}
 

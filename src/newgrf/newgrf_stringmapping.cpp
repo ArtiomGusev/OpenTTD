@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file newgrf_stringmapping.cpp NewGRF string mapping implementation. */
@@ -24,11 +24,9 @@
  * Information for mapping static StringIDs.
  */
 struct StringIDMapping {
-	uint32_t grfid; ///< Source NewGRF.
+	GrfID grfid; ///< Source NewGRF.
 	GRFStringID source; ///< Source grf-local GRFStringID.
 	std::function<void(StringID)> func; ///< Function for mapping result.
-
-	StringIDMapping(uint32_t grfid, GRFStringID source, std::function<void(StringID)> &&func) : grfid(grfid), source(source), func(std::move(func)) { }
 };
 
 /** Strings to be mapped during load. */
@@ -80,8 +78,8 @@ static StringID TTDPStringIDToOTTDStringIDMapping(GRFStringID str)
 	assert(!IsInsideMM(str.base(), 0xD000, 0xD7FF));
 
 #define TEXTID_TO_STRINGID(begin, end, stringid, stringend) \
-	static_assert(stringend - stringid == end - begin); \
-	if (str.base() >= begin && str.base() <= end) return StringID{str.base() + (stringid - begin)}
+	static_assert(stringend.base() - stringid.base() == end - begin); \
+	if (str.base() >= begin && str.base() <= end) return StringID{str.base() + (stringid.base() - begin)}
 
 	/* We have some changes in our cargo strings, resulting in some missing. */
 	TEXTID_TO_STRINGID(0x000E, 0x002D, STR_CARGO_PLURAL_NOTHING,                      STR_CARGO_PLURAL_FIZZY_DRINKS);
@@ -126,7 +124,7 @@ static StringID TTDPStringIDToOTTDStringIDMapping(GRFStringID str)
  * @param str GRF-local GRFStringID that we want to have the equivalent in OpenTTD.
  * @return The properly adjusted StringID.
  */
-StringID MapGRFStringID(uint32_t grfid, GRFStringID str)
+StringID MapGRFStringID(GrfID grfid, GRFStringID str)
 {
 	if (IsInsideMM(str.base(), 0xD800, 0x10000)) {
 		/* General text provided by NewGRF.

@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file palette.cpp Handling of palettes. */
@@ -29,7 +29,7 @@ static std::recursive_mutex _palette_mutex; ///< To coordinate access to _cur_pa
  * PALETTE_BITS reduces the bits-per-channel of 32bpp graphics data to allow faster palette lookups from
  * a smaller lookup table.
  *
- * 6 bpc is chosen as this results in a palette lookup table of 256KiB with adequate fidelty.
+ * 6 bpc is chosen as this results in a palette lookup table of 256KiB with adequate fidelity.
  * In contrast, a 5 bpc lookup table would be 32KiB, and 7 bpc would be 2MiB.
  *
  * Values in the table are filled as they are first encountered -- larger lookup table means more colour
@@ -40,12 +40,17 @@ const uint PALETTE_SHIFT = 8 - PALETTE_BITS;
 const uint PALETTE_BITS_MASK = ((1U << PALETTE_BITS) - 1) << PALETTE_SHIFT;
 const uint PALETTE_BITS_OR = (1U << (PALETTE_SHIFT - 1));
 
-/* Palette and reshade lookup table. */
+/** @{
+ * Palette lookup table. */
 using PaletteLookup = std::array<uint8_t, 1U << (PALETTE_BITS * 3)>;
 static PaletteLookup _palette_lookup{};
+/** @} */
 
+/** @{
+ * Reshade lookup table. */
 using ReshadeLookup = std::array<uint8_t, 1U << PALETTE_BITS>;
 static ReshadeLookup _reshade_lookup{};
+/** @} */
 
 /**
  * Reduce bits per channel to PALETTE_BITS, and place value in the middle of the reduced range.
@@ -121,7 +126,7 @@ static uint8_t FindNearestColourIndex(uint8_t r, uint8_t g, uint8_t b)
 
 /**
  * Find nearest company colour palette index for a brightness level.
- * @param pixel Pixel to find.
+ * @param b Pixel-colour to find.
  * @returns palette index of nearest colour.
  */
 static uint8_t FindNearestColourReshadeIndex(uint8_t b)
@@ -355,17 +360,17 @@ void DoPaletteAnimations()
 /**
  * Determine a contrasty text colour for a coloured background.
  * @param background Background colour.
- * @param threshold Background colour brightness threshold below which the background is considered dark and TC_WHITE is returned, range: 0 - 255, default 128.
- * @return TC_BLACK or TC_WHITE depending on what gives a better contrast.
+ * @param threshold Background colour brightness threshold below which the background is considered dark and TextColour::White is returned, range: 0 - 255, default 128.
+ * @return TextColour::Black or TextColour::White depending on what gives a better contrast.
  */
-TextColour GetContrastColour(uint8_t background, uint8_t threshold)
+TextColour GetContrastColour(PixelColour background, uint8_t threshold)
 {
-	Colour c = _cur_palette.palette[background];
+	Colour c = _cur_palette.palette[background.p];
 	/* Compute brightness according to http://www.w3.org/TR/AERT#color-contrast.
 	 * The following formula computes 1000 * brightness^2, with brightness being in range 0 to 255. */
 	uint sq1000_brightness = c.r * c.r * 299 + c.g * c.g * 587 + c.b * c.b * 114;
 	/* Compare with threshold brightness which defaults to 128 (50%) */
-	return sq1000_brightness < ((uint) threshold) * ((uint) threshold) * 1000 ? TC_WHITE : TC_BLACK;
+	return sq1000_brightness < ((uint) threshold) * ((uint) threshold) * 1000 ? TextColour::White : TextColour::Black;
 }
 
 /**
@@ -374,9 +379,9 @@ TextColour GetContrastColour(uint8_t background, uint8_t threshold)
  */
 struct ColourGradients
 {
-	using ColourGradient = std::array<uint8_t, SHADE_END>;
+	using ColourGradient = std::array<PixelColour, to_underlying(Shade::End)>;
 
-	static inline std::array<ColourGradient, COLOUR_END> gradient{};
+	static inline std::array<ColourGradient, to_underlying(Colours::End)> gradient{};
 };
 
 /**
@@ -385,9 +390,9 @@ struct ColourGradients
  * @param shade Shade level from 1 to 7.
  * @returns palette index of colour.
  */
-uint8_t GetColourGradient(Colours colour, ColourShade shade)
+PixelColour GetColourGradient(Colours colour, Shade shade)
 {
-	return ColourGradients::gradient[colour % COLOUR_END][shade % SHADE_END];
+	return ColourGradients::gradient[to_underlying(colour) % to_underlying(Colours::End)][to_underlying(shade) % to_underlying(Shade::End)];
 }
 
 /**
@@ -396,9 +401,9 @@ uint8_t GetColourGradient(Colours colour, ColourShade shade)
  * @param shade Shade level from 1 to 7.
  * @param palette_index Palette index to set.
  */
-void SetColourGradient(Colours colour, ColourShade shade, uint8_t palette_index)
+void SetColourGradient(Colours colour, Shade shade, PixelColour palette_index)
 {
-	assert(colour < COLOUR_END);
-	assert(shade < SHADE_END);
-	ColourGradients::gradient[colour % COLOUR_END][shade % SHADE_END] = palette_index;
+	assert(colour < Colours::End);
+	assert(shade < Shade::End);
+	ColourGradients::gradient[to_underlying(colour) % to_underlying(Colours::End)][to_underlying(shade) % to_underlying(Shade::End)] = palette_index;
 }

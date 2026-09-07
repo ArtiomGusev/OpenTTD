@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file script_company.cpp Implementation of ScriptCompany. */
@@ -70,7 +70,7 @@
 	EnforcePreconditionEncodedText(false, text);
 	EnforcePreconditionCustomError(false, ::Utf8StringLength(text) < MAX_LENGTH_COMPANY_NAME_CHARS, ScriptError::ERR_PRECONDITION_STRING_TOO_LONG);
 
-	return ScriptObject::Command<CMD_RENAME_COMPANY>::Do(text);
+	return ScriptObject::Command<Commands::RenameCompany>::Do(text);
 }
 
 /* static */ std::optional<std::string> ScriptCompany::GetName(ScriptCompany::CompanyID company)
@@ -91,7 +91,7 @@
 	EnforcePreconditionEncodedText(false, text);
 	EnforcePreconditionCustomError(false, ::Utf8StringLength(text) < MAX_LENGTH_PRESIDENT_NAME_CHARS, ScriptError::ERR_PRECONDITION_STRING_TOO_LONG);
 
-	return ScriptObject::Command<CMD_RENAME_PRESIDENT>::Do(text);
+	return ScriptObject::Command<Commands::RenamePresident>::Do(text);
 }
 
 /* static */ std::optional<std::string> ScriptCompany::GetPresidentName(ScriptCompany::CompanyID company)
@@ -108,12 +108,18 @@
 	EnforcePrecondition(false, gender == GENDER_MALE || gender == GENDER_FEMALE);
 	EnforcePrecondition(false, GetPresidentGender(ScriptCompany::COMPANY_SELF) != gender);
 
-	Randomizer &randomizer = ScriptObject::GetRandomizer();
-	CompanyManagerFace cmf;
-	GenderEthnicity ge = (GenderEthnicity)((gender == GENDER_FEMALE ? (1 << ::GENDER_FEMALE) : 0) | (randomizer.Next() & (1 << ETHNICITY_BLACK)));
-	RandomCompanyManagerFaceBits(cmf, ge, false, randomizer);
+	assert(GetNumCompanyManagerFaceStyles() >= 2); /* At least two styles are needed to fake a gender. */
 
-	return ScriptObject::Command<CMD_SET_COMPANY_MANAGER_FACE>::Do(cmf);
+	/* Company faces no longer have a defined gender, so pick a random face style instead. */
+	Randomizer &randomizer = ScriptObject::GetRandomizer();
+	CompanyManagerFace cmf{};
+	do {
+		cmf.style = randomizer.Next(GetNumCompanyManagerFaceStyles());
+	} while ((HasBit(cmf.style, 0) ? GENDER_FEMALE : GENDER_MALE) != gender);
+
+	RandomiseCompanyManagerFaceBits(cmf, GetCompanyManagerFaceVars(cmf.style), randomizer);
+
+	return ScriptObject::Command<Commands::SetCompanyManagerFace>::Do(cmf.style, cmf.bits);
 }
 
 /* static */ ScriptCompany::Gender ScriptCompany::GetPresidentGender(ScriptCompany::CompanyID company)
@@ -121,8 +127,10 @@
 	company = ResolveCompanyID(company);
 	if (company == ScriptCompany::COMPANY_INVALID) return GENDER_INVALID;
 
-	GenderEthnicity ge = (GenderEthnicity)GetCompanyManagerFaceBits(Company::Get(ScriptCompany::FromScriptCompanyID(company))->face, CMFV_GEN_ETHN, GE_WM);
-	return HasBit(ge, ::GENDER_FEMALE) ? GENDER_FEMALE : GENDER_MALE;
+	/* Company faces no longer have a defined gender, so fake one based on the style index. This might not match
+	 * the face appearance. */
+	const auto &cmf = ::Company::Get(ScriptCompany::FromScriptCompanyID(company))->face;
+	return HasBit(cmf.style, 0) ? GENDER_FEMALE : GENDER_MALE;
 }
 
 /* static */ Money ScriptCompany::GetQuarterlyIncome(ScriptCompany::CompanyID company, SQInteger quarter)
@@ -223,7 +231,7 @@
 
 	company = ResolveCompanyID(company);
 	EnforcePrecondition(false, company != ScriptCompany::COMPANY_INVALID);
-	return ScriptObject::Command<CMD_SET_COMPANY_MAX_LOAN>::Do(ScriptCompany::FromScriptCompanyID(company), amount);
+	return ScriptObject::Command<Commands::SetCompanyMaxLoan>::Do(ScriptCompany::FromScriptCompanyID(company), amount);
 }
 
 /* static */ bool ScriptCompany::ResetMaxLoanAmountForCompany(ScriptCompany::CompanyID company)
@@ -233,7 +241,7 @@
 	company = ResolveCompanyID(company);
 	EnforcePrecondition(false, company != ScriptCompany::COMPANY_INVALID);
 
-	return ScriptObject::Command<CMD_SET_COMPANY_MAX_LOAN>::Do(ScriptCompany::FromScriptCompanyID(company), COMPANY_MAX_LOAN_DEFAULT);
+	return ScriptObject::Command<Commands::SetCompanyMaxLoan>::Do(ScriptCompany::FromScriptCompanyID(company), COMPANY_MAX_LOAN_DEFAULT);
 }
 
 /* static */ Money ScriptCompany::GetLoanInterval()
@@ -254,9 +262,9 @@
 	Money amount = abs(loan - GetLoanAmount());
 
 	if (loan > GetLoanAmount()) {
-		return ScriptObject::Command<CMD_INCREASE_LOAN>::Do(LoanCommand::Amount, amount);
+		return ScriptObject::Command<Commands::IncreaseLoan>::Do(LoanCommand::Amount, amount);
 	} else {
-		return ScriptObject::Command<CMD_DECREASE_LOAN>::Do(LoanCommand::Amount, amount);
+		return ScriptObject::Command<Commands::DecreaseLoan>::Do(LoanCommand::Amount, amount);
 	}
 }
 
@@ -278,14 +286,14 @@
 /* static */ bool ScriptCompany::ChangeBankBalance(ScriptCompany::CompanyID company, Money delta, ExpensesType expenses_type, TileIndex tile)
 {
 	EnforceDeityMode(false);
-	EnforcePrecondition(false, expenses_type < (ExpensesType)::EXPENSES_END);
+	EnforcePrecondition(false, expenses_type < static_cast<ExpensesType>(to_underlying(::ExpensesType::End)));
 	EnforcePrecondition(false, tile == INVALID_TILE || ::IsValidTile(tile));
 
 	company = ResolveCompanyID(company);
 	EnforcePrecondition(false, company != ScriptCompany::COMPANY_INVALID);
 
 	/* Network commands only allow 0 to indicate invalid tiles, not INVALID_TILE */
-	return ScriptObject::Command<CMD_CHANGE_BANK_BALANCE>::Do(tile == INVALID_TILE ? (TileIndex)0U : tile, delta, ScriptCompany::FromScriptCompanyID(company), (::ExpensesType)expenses_type);
+	return ScriptObject::Command<Commands::ChangeBankBalance>::Do(tile == INVALID_TILE ? (TileIndex)0U : tile, delta, ScriptCompany::FromScriptCompanyID(company), (::ExpensesType)expenses_type);
 }
 
 /* static */ bool ScriptCompany::BuildCompanyHQ(TileIndex tile)
@@ -293,7 +301,7 @@
 	EnforceCompanyModeValid(false);
 	EnforcePrecondition(false, ::IsValidTile(tile));
 
-	return ScriptObject::Command<CMD_BUILD_OBJECT>::Do(tile, OBJECT_HQ, 0);
+	return ScriptObject::Command<Commands::BuildObject>::Do(tile, OBJECT_HQ, 0);
 }
 
 /* static */ TileIndex ScriptCompany::GetCompanyHQ(ScriptCompany::CompanyID company)
@@ -308,7 +316,7 @@
 /* static */ bool ScriptCompany::SetAutoRenewStatus(bool autorenew)
 {
 	EnforceCompanyModeValid(false);
-	return ScriptObject::Command<CMD_CHANGE_COMPANY_SETTING>::Do("company.engine_renew", autorenew ? 1 : 0);
+	return ScriptObject::Command<Commands::ChangeCompanySetting>::Do("company.engine_renew", autorenew ? 1 : 0);
 }
 
 /* static */ bool ScriptCompany::GetAutoRenewStatus(ScriptCompany::CompanyID company)
@@ -324,7 +332,7 @@
 	EnforceCompanyModeValid(false);
 	months = Clamp<SQInteger>(months, INT16_MIN, INT16_MAX);
 
-	return ScriptObject::Command<CMD_CHANGE_COMPANY_SETTING>::Do("company.engine_renew_months", months);
+	return ScriptObject::Command<Commands::ChangeCompanySetting>::Do("company.engine_renew_months", months);
 }
 
 /* static */ SQInteger ScriptCompany::GetAutoRenewMonths(ScriptCompany::CompanyID company)
@@ -340,7 +348,7 @@
 	EnforceCompanyModeValid(false);
 	EnforcePrecondition(false, money >= 0);
 	EnforcePrecondition(false, (int64_t)money <= UINT32_MAX);
-	return ScriptObject::Command<CMD_CHANGE_COMPANY_SETTING>::Do("company.engine_renew_money", money);
+	return ScriptObject::Command<Commands::ChangeCompanySetting>::Do("company.engine_renew_money", money);
 }
 
 /* static */ Money ScriptCompany::GetAutoRenewMoney(ScriptCompany::CompanyID company)
@@ -354,31 +362,31 @@
 /* static */ bool ScriptCompany::SetPrimaryLiveryColour(LiveryScheme scheme, Colours colour)
 {
 	EnforceCompanyModeValid(false);
-	return ScriptObject::Command<CMD_SET_COMPANY_COLOUR>::Do((::LiveryScheme)scheme, true, (::Colours)colour);
+	return ScriptObject::Command<Commands::SetCompanyColour>::Do((::LiveryScheme)scheme, true, (::Colours)colour);
 }
 
 /* static */ bool ScriptCompany::SetSecondaryLiveryColour(LiveryScheme scheme, Colours colour)
 {
 	EnforceCompanyModeValid(false);
-	return ScriptObject::Command<CMD_SET_COMPANY_COLOUR>::Do((::LiveryScheme)scheme, false, (::Colours)colour);
+	return ScriptObject::Command<Commands::SetCompanyColour>::Do((::LiveryScheme)scheme, false, (::Colours)colour);
 }
 
 /* static */ ScriptCompany::Colours ScriptCompany::GetPrimaryLiveryColour(ScriptCompany::LiveryScheme scheme)
 {
-	if ((::LiveryScheme)scheme < LS_BEGIN || (::LiveryScheme)scheme >= LS_END) return COLOUR_INVALID;
+	EnforceCompanyModeValid(COLOUR_INVALID);
+	EnforcePrecondition(COLOUR_INVALID, static_cast<::LiveryScheme>(scheme) >= ::LiveryScheme::Begin);
+	EnforcePrecondition(COLOUR_INVALID, static_cast<::LiveryScheme>(scheme) < ::LiveryScheme::End);
 
-	const Company *c = ::Company::GetIfValid(_current_company);
-	if (c == nullptr) return COLOUR_INVALID;
-
-	return (ScriptCompany::Colours)c->livery[scheme].colour1;
+	const Company *c = ::Company::Get(ScriptObject::GetCompany());
+	return (ScriptCompany::Colours)c->livery[static_cast<::LiveryScheme>(scheme)].colour1;
 }
 
 /* static */ ScriptCompany::Colours ScriptCompany::GetSecondaryLiveryColour(ScriptCompany::LiveryScheme scheme)
 {
-	if ((::LiveryScheme)scheme < LS_BEGIN || (::LiveryScheme)scheme >= LS_END) return COLOUR_INVALID;
+	EnforceCompanyModeValid(COLOUR_INVALID);
+	EnforcePrecondition(COLOUR_INVALID, static_cast<::LiveryScheme>(scheme) >= ::LiveryScheme::Begin);
+	EnforcePrecondition(COLOUR_INVALID, static_cast<::LiveryScheme>(scheme) < ::LiveryScheme::End);
 
-	const Company *c = ::Company::GetIfValid(_current_company);
-	if (c == nullptr) return COLOUR_INVALID;
-
-	return (ScriptCompany::Colours)c->livery[scheme].colour2;
+	const Company *c = ::Company::Get(ScriptObject::GetCompany());
+	return (ScriptCompany::Colours)c->livery[static_cast<::LiveryScheme>(scheme)].colour2;
 }

@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file debug.h Functions related to debugging. */
@@ -61,8 +61,13 @@ void SetDebugString(std::string_view s, SetDebugStringErrorFunc error_func);
 std::string GetDebugString();
 
 /** TicToc profiling.
- * Usage:
+ * Usage for max_count based output:
  * static TicToc::State state("A name", 1);
+ * TicToc tt(state);
+ * --Do your code--
+ *
+ * Usage for per-tick output:
+ * static TicToc::State state("A name");
  * TicToc tt(state);
  * --Do your code--
  */
@@ -70,11 +75,36 @@ struct TicToc {
 	/** Persistent state for TicToc profiling. */
 	struct State {
 		const std::string_view name;
-		const uint32_t max_count;
+		const std::optional<uint32_t> max_count;
 		uint32_t count = 0;
 		uint64_t chrono_sum = 0;
 
-		constexpr State(std::string_view name, uint32_t max_count) : name(name), max_count(max_count) { }
+		using States = std::vector<State *>;
+
+		State(std::string_view name, std::optional<uint32_t> max_count = {}) : name(name), max_count(max_count)
+		{
+			GetStates().push_back(this);
+		}
+
+		/** Remove ourselves from the thread local states. */
+		~State()
+		{
+			/* Container might be already destroyed. */
+			if (!GetStates().empty()) std::erase(GetStates(), this);
+		}
+
+		static States &GetStates()
+		{
+			thread_local static States s_states;
+			return s_states;
+		}
+
+		void OutputAndReset(const std::string_view prefix = "")
+		{
+			Debug(misc, 0, "[{}] [{}] {} calls in {} us [avg: {:.1f} us]", prefix, this->name, this->count, this->chrono_sum, this->chrono_sum / static_cast<double>(this->count));
+			this->count = 0;
+			this->chrono_sum = 0;
+		}
 	};
 
 	State &state;
@@ -82,13 +112,21 @@ struct TicToc {
 
 	inline TicToc(State &state) : state(state), chrono_start(std::chrono::high_resolution_clock::now()) { }
 
+	/** Update the state with the time since the constructor call. */
 	inline ~TicToc()
 	{
 		this->state.chrono_sum += (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - this->chrono_start)).count();
-		if (++this->state.count == this->state.max_count) {
-			Debug(misc, 0, "[{}] {} us [avg: {:.1f} us]", this->state.name, this->state.chrono_sum, this->state.chrono_sum / static_cast<double>(this->state.count));
-			this->state.count = 0;
-			this->state.chrono_sum = 0;
+		this->state.count++;
+		if (this->state.max_count.has_value() && this->state.count == this->state.max_count.value()) {
+			this->state.OutputAndReset("MaxCount");
+		}
+	}
+
+	static void Tick(const std::string_view prefix)
+	{
+		for (auto state : State::GetStates()) {
+			if (state->max_count.has_value() || state->count == 0) continue;
+			state->OutputAndReset(prefix);
 		}
 	}
 };

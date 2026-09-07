@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file yapf_node_rail.hpp Node tailored for rail pathfinding. */
@@ -17,8 +17,7 @@
 #include "yapf_type.hpp"
 
 /** key for cached segment cost for rail YAPF */
-struct CYapfRailSegmentKey
-{
+struct CYapfRailSegmentKey {
 	uint32_t value;
 
 	inline CYapfRailSegmentKey(const CYapfNodeKeyTrackDir &node_key)
@@ -33,7 +32,7 @@ struct CYapfRailSegmentKey
 
 	inline void Set(const CYapfNodeKeyTrackDir &node_key)
 	{
-		this->value = (node_key.tile.base() << 4) | node_key.td;
+		this->value = (node_key.tile.base() << 4) | to_underlying(node_key.td);
 	}
 
 	inline int32_t CalcHash() const
@@ -48,7 +47,7 @@ struct CYapfRailSegmentKey
 
 	inline Trackdir GetTrackdir() const
 	{
-		return (Trackdir)(this->value & 0x0F);
+		return static_cast<Trackdir>(this->value & 0x0F);
 	}
 
 	inline bool operator==(const CYapfRailSegmentKey &other) const
@@ -64,16 +63,15 @@ struct CYapfRailSegmentKey
 };
 
 /** cached segment cost for rail YAPF */
-struct CYapfRailSegment
-{
+struct CYapfRailSegment {
 	typedef CYapfRailSegmentKey Key;
 
 	CYapfRailSegmentKey key;
 	TileIndex last_tile = INVALID_TILE;
-	Trackdir last_td = INVALID_TRACKDIR;
+	Trackdir last_td = Trackdir::Invalid;
 	int cost = -1;
 	TileIndex last_signal_tile = INVALID_TILE;
-	Trackdir last_signal_td = INVALID_TRACKDIR;
+	Trackdir last_signal_td = Trackdir::Invalid;
 	EndSegmentReasons end_segment_reason{};
 	CYapfRailSegment *hash_next = nullptr;
 
@@ -112,11 +110,8 @@ struct CYapfRailSegment
 };
 
 /** Yapf Node for rail YAPF */
-template <class Tkey_>
-struct CYapfRailNodeT
-	: CYapfNodeT<Tkey_, CYapfRailNodeT<Tkey_> >
-{
-	typedef CYapfNodeT<Tkey_, CYapfRailNodeT<Tkey_> > base;
+struct CYapfRailNode : CYapfNodeT<CYapfNodeKeyTrackDir, CYapfRailNode> {
+	typedef CYapfNodeT<CYapfNodeKeyTrackDir, CYapfRailNode> base;
 	typedef CYapfRailSegment CachedData;
 
 	CYapfRailSegment *segment;
@@ -132,14 +127,14 @@ struct CYapfRailNodeT
 	SignalType last_red_signal_type;
 	SignalType last_signal_type;
 
-	inline void Set(CYapfRailNodeT *parent, TileIndex tile, Trackdir td, bool is_choice)
+	inline void Set(CYapfRailNode *parent, TileIndex tile, Trackdir td, bool is_choice)
 	{
 		this->base::Set(parent, tile, td, is_choice);
 		this->segment = nullptr;
 		if (parent == nullptr) {
 			this->num_signals_passed      = 0;
 			this->flags_u.inherited_flags = 0;
-			this->last_red_signal_type    = SIGTYPE_BLOCK;
+			this->last_red_signal_type    = SignalType::Block;
 			/* We use PBS as initial signal type because if we are in
 			 * a PBS section and need to route, i.e. we're at a safe
 			 * waiting point of a station, we need to account for the
@@ -150,7 +145,7 @@ struct CYapfRailNodeT
 			 * then avoiding that train with help of the reservation
 			 * costs is not a bad thing, actually it would probably
 			 * be a good thing to do. */
-			this->last_signal_type        = SIGTYPE_PBS;
+			this->last_signal_type        = SignalType::Path;
 		} else {
 			this->num_signals_passed      = parent->num_signals_passed;
 			this->flags_u.inherited_flags = parent->flags_u.inherited_flags;
@@ -182,17 +177,17 @@ struct CYapfRailNodeT
 	template <class Tbase, class Tfunc, class Tpf>
 	bool IterateTiles(const Train *v, Tpf &yapf, Tbase &obj, bool (Tfunc::*func)(TileIndex, Trackdir)) const
 	{
-		typename Tbase::TrackFollower ft(v, yapf.GetCompatibleRailTypes());
+		typename Tbase::TrackFollower follower{v, yapf.GetCompatibleRailTypes()};
 		TileIndex cur = this->base::GetTile();
 		Trackdir  cur_td = this->base::GetTrackdir();
 
 		while (cur != this->GetLastTile() || cur_td != this->GetLastTrackdir()) {
 			if (!((obj.*func)(cur, cur_td))) return false;
 
-			if (!ft.Follow(cur, cur_td)) break;
-			cur = ft.new_tile;
-			assert(KillFirstBit(ft.new_td_bits) == TRACKDIR_BIT_NONE);
-			cur_td = FindFirstTrackdir(ft.new_td_bits);
+			if (!follower.Follow(cur, cur_td)) break;
+			cur = follower.new_tile;
+			assert(follower.new_td_bits.Count() == 1);
+			cur_td = FindFirstTrackdir(follower.new_td_bits);
 		}
 
 		return (obj.*func)(cur, cur_td);
@@ -210,12 +205,6 @@ struct CYapfRailNodeT
 	}
 };
 
-/* now define two major node types (that differ by key type) */
-typedef CYapfRailNodeT<CYapfNodeKeyExitDir>  CYapfRailNodeExitDir;
-typedef CYapfRailNodeT<CYapfNodeKeyTrackDir> CYapfRailNodeTrackDir;
-
-/* Default NodeList types */
-typedef NodeList<CYapfRailNodeExitDir , 8, 10> CRailNodeListExitDir;
-typedef NodeList<CYapfRailNodeTrackDir, 8, 10> CRailNodeListTrackDir;
+typedef NodeList<CYapfRailNode, 8, 10> CRailNodeList;
 
 #endif /* YAPF_NODE_RAIL_HPP */

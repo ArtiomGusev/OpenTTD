@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file base_consist.h Properties for front vehicles/consists. */
@@ -26,7 +26,10 @@ enum class VehicleFlag : uint8_t {
 	PathfinderLost = 7, ///< Vehicle's pathfinder is lost.
 	ServiceIntervalIsCustom = 8, ///< Service interval is custom.
 	ServiceIntervalIsPercent = 9, ///< Service interval is percent.
+	DrivingBackwards = 10, ///< Vehicle is driving backwards.
 };
+
+/** Bitset of \c VehicleFlag elements. */
 using VehicleFlags = EnumBitSet<VehicleFlag, uint16_t>;
 
 /** Various front vehicle properties that are preserved when autoreplacing, using order-backup or switching front engines within a consist. */
@@ -49,6 +52,7 @@ struct BaseConsist {
 
 	VehicleFlags vehicle_flags{}; ///< Used for gradual loading and other miscellaneous things (@see VehicleFlags enum)
 
+	/** Ensure the destructor of the sub classes are called as well. */
 	virtual ~BaseConsist() = default;
 
 	void CopyConsistPropertiesFrom(const BaseConsist *src);

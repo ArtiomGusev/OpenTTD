@@ -2,10 +2,10 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file ai_scanner.cpp allows scanning AI scripts */
+/** @file ai_scanner.cpp Allows scanning AI scripts. */
 
 #include "../stdafx.h"
 #include <ranges>
@@ -22,31 +22,23 @@
 #include "../safeguards.h"
 
 
-AIScannerInfo::AIScannerInfo() :
-	ScriptScanner(),
-	info_dummy(nullptr)
-{
-}
+AIScannerInfo::AIScannerInfo() = default;
+AIScannerInfo::~AIScannerInfo() = default;
 
 void AIScannerInfo::Initialize()
 {
 	ScriptScanner::Initialize("AIScanner");
 
-	ScriptAllocatorScope alloc_scope(this->engine);
+	ScriptAllocatorScope alloc_scope(this->engine.get());
 
 	/* Create the dummy AI */
 	this->main_script = "%_dummy";
 	Script_CreateDummyInfo(this->engine->GetVM(), "AI", "ai");
 }
 
-void AIScannerInfo::SetDummyAI(class AIInfo *info)
+void AIScannerInfo::SetDummyAI(std::unique_ptr<class AIInfo> &&info)
 {
-	this->info_dummy = info;
-}
-
-AIScannerInfo::~AIScannerInfo()
-{
-	delete this->info_dummy;
+	this->info_dummy = std::move(info);
 }
 
 std::string AIScannerInfo::GetScriptName(ScriptInfo &info)
@@ -61,9 +53,9 @@ void AIScannerInfo::RegisterAPI(class Squirrel &engine)
 
 AIInfo *AIScannerInfo::SelectRandomAI() const
 {
-	if (_game_mode == GM_MENU) {
+	if (_game_mode == GameMode::Menu) {
 		Debug(script, 0, "The intro game should not use AI, loading 'dummy' AI.");
-		return this->info_dummy;
+		return this->info_dummy.get();
 	}
 
 	/* Filter for AIs suitable as Random AI. */
@@ -72,7 +64,7 @@ AIInfo *AIScannerInfo::SelectRandomAI() const
 	uint num_random_ais = std::ranges::distance(random_ais);
 	if (num_random_ais == 0) {
 		Debug(script, 0, "No suitable AI found, loading 'dummy' AI.");
-		return this->info_dummy;
+		return this->info_dummy.get();
 	}
 
 	/* Pick a random AI */
@@ -145,5 +137,5 @@ AILibrary *AIScannerLibrary::FindLibrary(const std::string &library, int version
 	ScriptInfoList::iterator it = this->info_list.find(library_name);
 	if (it == this->info_list.end()) return nullptr;
 
-	return static_cast<AILibrary *>((*it).second);
+	return static_cast<AILibrary *>(it->second);
 }

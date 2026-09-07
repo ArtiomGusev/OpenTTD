@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file industry.h Base of all industries. */
@@ -11,6 +11,7 @@
 #define INDUSTRY_H
 
 #include "core/flatset_type.hpp"
+#include "misc/history_type.hpp"
 #include "newgrf_storage.h"
 #include "subsidy_type.h"
 #include "industry_map.h"
@@ -51,12 +52,11 @@ enum class IndustryControlFlag : uint8_t {
 	NoClosure = 2,
 	/** Indicates that the production level of the industry is externally controlled. */
 	ExternalProdLevel = 3,
-	End,
+	End, ///< End marker.
 };
-using IndustryControlFlags = EnumBitSet<IndustryControlFlag, uint8_t, IndustryControlFlag::End>;
 
-static const int THIS_MONTH = 0;
-static const int LAST_MONTH = 1;
+/** Bitset of \c IndustryControlFlag elements. */
+using IndustryControlFlags = EnumBitSet<IndustryControlFlag, uint8_t, IndustryControlFlag::End>;
 
 /**
  * Defines the internal data of a functional industry.
@@ -72,18 +72,34 @@ struct Industry : IndustryPool::PoolItem<&_industry_pool> {
 			return ClampTo<uint8_t>(this->transported * 256 / this->production);
 		}
 	};
-
 	struct ProducedCargo {
-		CargoType cargo = 0; ///< Cargo type
+		CargoType cargo = INVALID_CARGO; ///< Cargo type
 		uint16_t waiting = 0; ///< Amount of cargo produced
 		uint8_t rate = 0; ///< Production rate
-		std::array<ProducedHistory, 25> history{}; ///< History of cargo produced and transported for this month and 24 previous months
+		HistoryData<ProducedHistory> history{}; ///< History of cargo produced and transported for this month and 24 previous months
+	};
+
+	struct AcceptedHistory {
+		uint16_t accepted = 0; ///< Total accepted.
+		uint16_t waiting = 0; ///< Average waiting.
 	};
 
 	struct AcceptedCargo {
-		CargoType cargo = 0; ///< Cargo type
+		CargoType cargo = INVALID_CARGO; ///< Cargo type
 		uint16_t waiting = 0; ///< Amount of cargo waiting to processed
+		uint32_t accumulated_waiting = 0; ///< Accumulated waiting total over the last month, used to calculate average.
 		TimerGameEconomy::Date last_accepted{}; ///< Last day cargo was accepted by this industry
+		std::unique_ptr<HistoryData<AcceptedHistory>> history{}; ///< History of accepted and waiting cargo.
+
+		/**
+		 * Get history data, creating it if necessary.
+		 * @return Accepted history data.
+		 */
+		inline HistoryData<AcceptedHistory> &GetOrCreateHistory()
+		{
+			if (this->history == nullptr) this->history = std::make_unique<HistoryData<AcceptedHistory>>();
+			return *this->history;
+		}
 	};
 
 	using ProducedCargoes = std::vector<ProducedCargo>;
@@ -92,6 +108,7 @@ struct Industry : IndustryPool::PoolItem<&_industry_pool> {
 	TileArea location{INVALID_TILE, 0, 0}; ///< Location of the industry
 	Town *town = nullptr; ///< Nearest town
 	Station *neutral_station = nullptr; ///< Associated neutral station
+	ValidHistoryMask valid_history = 0; ///< Mask of valid history records.
 	ProducedCargoes produced{}; ///< produced cargo slots
 	AcceptedCargoes accepted{}; ///< accepted cargo slots
 	uint8_t prod_level = 0; ///< general production level
@@ -99,7 +116,7 @@ struct Industry : IndustryPool::PoolItem<&_industry_pool> {
 
 	IndustryType type = 0; ///< type of industry.
 	Owner owner = INVALID_OWNER; ///< owner of the industry.  Which SHOULD always be (imho) OWNER_NONE
-	Colours random_colour = COLOUR_BEGIN; ///< randomized colour of the industry, for display purpose
+	Colours random_colour = Colours::Begin; ///< randomized colour of the industry, for display purpose
 	TimerGameEconomy::Year last_prod_year{}; ///< last economy year of production
 	uint8_t was_cargo_delivered = 0; ///< flag that indicate this has been the closest industry chosen for cargo delivery by a station. see DeliverGoodsToIndustry
 	IndustryControlFlags ctlflags{}; ///< flags overriding standard behaviours
@@ -110,7 +127,7 @@ struct Industry : IndustryPool::PoolItem<&_industry_pool> {
 
 	Owner founder = INVALID_OWNER; ///< Founder of the industry
 	TimerGameCalendar::Date construction_date{}; ///< Date of the construction of the industry
-	uint8_t construction_type = 0; ///< Way the industry was constructed (@see IndustryConstructionType)
+	IndustryConstructionType construction_type{}; ///< Way the industry was constructed (@see IndustryConstructionType)
 	uint8_t selected_layout = 0; ///< Which tile layout was used when creating the industry
 	Owner exclusive_supplier = INVALID_OWNER; ///< Which company has exclusive rights to deliver cargo (INVALID_OWNER = anyone)
 	Owner exclusive_consumer = INVALID_OWNER; ///< Which company has exclusive rights to take cargo (INVALID_OWNER = anyone)
@@ -120,7 +137,7 @@ struct Industry : IndustryPool::PoolItem<&_industry_pool> {
 
 	PersistentStorage *psa = nullptr; ///< Persistent storage for NewGRF industries.
 
-	Industry(TileIndex tile = INVALID_TILE) : location(tile, 0, 0) {}
+	Industry(IndustryID index, TileIndex tile = INVALID_TILE) : IndustryPool::PoolItem<&_industry_pool>(index), location(tile, 0, 0) {}
 	~Industry();
 
 	void RecomputeProductionMultipliers();
@@ -132,7 +149,7 @@ struct Industry : IndustryPool::PoolItem<&_industry_pool> {
 	 */
 	inline bool TileBelongsToIndustry(TileIndex tile) const
 	{
-		return IsTileType(tile, MP_INDUSTRY) && GetIndustryIndex(tile) == this->index;
+		return IsTileType(tile, TileType::Industry) && GetIndustryIndex(tile) == this->index;
 	}
 
 	/**
@@ -153,7 +170,7 @@ struct Industry : IndustryPool::PoolItem<&_industry_pool> {
 	 */
 	inline const AcceptedCargo &GetAccepted(size_t slot) const
 	{
-		static const AcceptedCargo empty{INVALID_CARGO, 0, {}};
+		static const AcceptedCargo empty{INVALID_CARGO, 0, 0, {}, {}};
 		return slot < this->accepted.size() ? this->accepted[slot] : empty;
 	}
 
@@ -230,7 +247,7 @@ struct Industry : IndustryPool::PoolItem<&_industry_pool> {
 	/**
 	 * Get the industry of the given tile
 	 * @param tile the tile to get the industry from
-	 * @pre IsTileType(t, MP_INDUSTRY)
+	 * @pre IsTileType(t, TileType::Industry)
 	 * @return the industry
 	 */
 	static inline Industry *GetByTile(TileIndex tile)
@@ -245,6 +262,7 @@ struct Industry : IndustryPool::PoolItem<&_industry_pool> {
 	 * Get the count of industries for this type.
 	 * @param type IndustryType to query
 	 * @pre type < NUM_INDUSTRYTYPES
+	 * @return The number of industries of the given type.
 	 */
 	static inline uint16_t GetIndustryTypeCount(IndustryType type)
 	{

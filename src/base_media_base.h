@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file base_media_base.h Generic functions for replacing base data (graphics, sounds). */
@@ -24,11 +24,11 @@ struct ContentInfo;
 /** Structure holding filename and MD5 information about a single file */
 struct MD5File {
 	/** The result of a checksum check */
-	enum ChecksumResult : uint8_t {
-		CR_UNKNOWN,  ///< The file has not been checked yet
-		CR_MATCH,    ///< The file did exist and the md5 checksum did match
-		CR_MISMATCH, ///< The file did exist, just the md5 checksum did not match
-		CR_NO_FILE,  ///< The file did not exist
+	enum class ChecksumResult : uint8_t {
+		Unknown, ///< The file has not been checked yet
+		Match, ///< The file did exist and the md5 checksum did match
+		Mismatch, ///< The file did exist, just the md5 checksum did not match
+		NoFile, ///< The file did not exist
 	};
 
 	std::string filename;        ///< filename
@@ -48,7 +48,11 @@ template <class T> struct BaseSetTraits;
  */
 template <class T>
 struct BaseSet {
-	typedef std::unordered_map<std::string, std::string, StringHash, std::equal_to<>> TranslatedStrings;
+	/** Ensure the destructor of the sub classes are called as well. */
+	virtual ~BaseSet() = default;
+
+	/** Mapping of translations: language -> string. */
+	using TranslatedStrings = std::unordered_map<std::string, std::string, StringHash, std::equal_to<>>;
 
 	/** Number of files in this set */
 	static constexpr size_t NUM_FILES = BaseSetTraits<T>::num_files;
@@ -69,14 +73,6 @@ struct BaseSet {
 	std::array<MD5File, BaseSet<T>::NUM_FILES> files{}; ///< All files part of this set
 	uint found_files = 0; ///< Number of the files that could be found
 	uint valid_files = 0; ///< Number of the files that could be found and are valid
-
-	T *next = nullptr; ///< The next base set in this list
-
-	/** Free everything we allocated */
-	~BaseSet()
-	{
-		delete this->next;
-	}
 
 	/**
 	 * Get the number of missing files.
@@ -101,6 +97,11 @@ struct BaseSet {
 	const IniItem *GetMandatoryItem(std::string_view full_filename, const IniGroup &group, std::string_view name) const;
 
 	bool FillSetDetails(const IniFile &ini, const std::string &path, const std::string &full_filename, bool allow_empty_filename = true);
+
+	/**
+	 * Copy settings from the given set into this set when they are compatible.
+	 * @param src The location to copy settings from.
+	 */
 	void CopyCompatibleConfig([[maybe_unused]] const T &src) {}
 
 	/**
@@ -131,9 +132,9 @@ struct BaseSet {
 	 * @param file The file get the hash of.
 	 * @param subdir The sub directory to get the files from.
 	 * @return
-	 * - #CR_MATCH if the MD5 hash matches
-	 * - #CR_MISMATCH if the MD5 does not match
-	 * - #CR_NO_FILE if the file misses
+	 * - #MD5File::ChecksumResult::Match if the MD5 hash matches
+	 * - #MD5File::ChecksumResult::Mismatch if the MD5 does not match
+	 * - #MD5File::ChecksumResult::NoFile if the file misses
 	 */
 	static MD5File::ChecksumResult CheckMD5(const MD5File *file, Subdirectory subdir)
 	{
@@ -148,7 +149,7 @@ struct BaseSet {
 	std::optional<std::string> GetTextfile(TextfileType type) const
 	{
 		for (const auto &file : this->files) {
-			auto textfile = ::GetTextfile(type, BASESET_DIR, file.filename);
+			auto textfile = ::GetTextfile(type, Subdirectory::Baseset, file.filename);
 			if (textfile.has_value()) {
 				return textfile;
 			}
@@ -170,9 +171,9 @@ struct BaseSet {
 template <class Tbase_set>
 class BaseMedia : FileScanner {
 protected:
-	static inline Tbase_set *available_sets = nullptr; ///< All available sets
-	static inline Tbase_set *duplicate_sets = nullptr; ///< All sets that aren't available, but needed for not downloading base sets when a newer version than the one on BaNaNaS is loaded.
-	static inline const Tbase_set *used_set = nullptr; ///< The currently used set
+	static inline std::vector<std::unique_ptr<Tbase_set>> available_sets; ///< All available sets
+	static inline std::vector<std::unique_ptr<Tbase_set>> duplicate_sets; ///< All sets that aren't available, but needed for not downloading base sets when a newer version than the one on BaNaNaS is loaded.
+	static inline const Tbase_set *used_set; ///< The currently used set
 
 	bool AddFile(const std::string &filename, size_t basepath_length, const std::string &tar_filename) override;
 
@@ -181,6 +182,12 @@ protected:
 	 * @return the extension
 	 */
 	static std::string_view GetExtension();
+
+	/**
+	 * Return the duplicate sets.
+	 * @return The duplicate sets.
+	 */
+	 static std::span<const std::unique_ptr<Tbase_set>> GetDuplicateSets() { return BaseMedia<Tbase_set>::duplicate_sets; }
 public:
 	/**
 	 * Determine the graphics pack that has to be used.
@@ -189,16 +196,23 @@ public:
 	 */
 	static bool DetermineBestSet();
 
-	/** Do the scan for files. */
+	/**
+	 * Do the scan for files.
+	 * @return The number of sets that have been found.
+	 */
 	static uint FindSets()
 	{
 		BaseMedia<Tbase_set> fs;
 		/* Searching in tars is only done in the old "data" directories basesets. */
-		uint num = fs.Scan(GetExtension(), Tbase_set::SEARCH_IN_TARS ? OLD_DATA_DIR : OLD_GM_DIR, Tbase_set::SEARCH_IN_TARS);
-		return num + fs.Scan(GetExtension(), BASESET_DIR, Tbase_set::SEARCH_IN_TARS);
+		uint num = fs.Scan(GetExtension(), Tbase_set::SEARCH_IN_TARS ? Subdirectory::OldData : Subdirectory::OldGm, Tbase_set::SEARCH_IN_TARS);
+		return num + fs.Scan(GetExtension(), Subdirectory::Baseset, Tbase_set::SEARCH_IN_TARS);
 	}
 
-	static Tbase_set *GetAvailableSets();
+	/**
+	 * Return the available sets.
+	 * @return The available sets.
+	 */
+	static std::span<const std::unique_ptr<Tbase_set>> GetAvailableSets() { return BaseMedia<Tbase_set>::available_sets; }
 
 	static bool SetSet(const Tbase_set *set);
 	static bool SetSetByName(const std::string &name);
@@ -222,10 +236,10 @@ public:
  * Check whether there's a base set matching some information.
  * @param ci The content info to compare it to.
  * @param md5sum Should the MD5 checksum be tested as well?
- * @param s The list with sets.
+ * @param sets The span with sets.
  * @return The filename of the first file of the base set, or \c std::nullopt if there is no match.
  */
 template <class Tbase_set>
-std::optional<std::string_view> TryGetBaseSetFile(const ContentInfo &ci, bool md5sum, const Tbase_set *s);
+std::optional<std::string_view> TryGetBaseSetFile(const ContentInfo &ci, bool md5sum, std::span<const std::unique_ptr<Tbase_set>> sets);
 
 #endif /* BASE_MEDIA_BASE_H */

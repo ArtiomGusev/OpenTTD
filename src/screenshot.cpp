@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file screenshot.cpp The creation of screenshots! */
@@ -16,7 +16,7 @@
 #include "screenshot_gui.h"
 #include "blitter/factory.hpp"
 #include "zoom_func.h"
-#include "saveload/saveload.h"
+#include "saveload/saveload_func.h"
 #include "company_func.h"
 #include "strings_func.h"
 #include "error.h"
@@ -46,18 +46,21 @@ uint _heightmap_highest_peak;         ///< When saving a heightmap, this contain
  * If the selected provider is not found, then the first provider will be used instead.
  * @returns ScreenshotProvider, or null if none exist.
  */
-static ScreenshotProvider *GetScreenshotProvider()
+static const ScreenshotProvider *GetScreenshotProvider()
 {
-	auto providers = ProviderManager<ScreenshotProvider>::GetProviders();
+	const auto &providers = ProviderManager<ScreenshotProvider>::GetProviders();
 	if (providers.empty()) return nullptr;
 
-	auto it = std::ranges::find_if(providers, [](const auto &p) { return p->GetName() == _screenshot_format_name; });
+	auto it = std::ranges::find(providers, _screenshot_format_name, &ScreenshotProvider::GetName);
 	if (it != std::end(providers)) return *it;
 
 	return providers.front();
 }
 
-/** Get filename extension of current screenshot file format. */
+/**
+ * Get filename extension of current screenshot file format.
+ * @return The screenshot extension.
+ */
 std::string_view GetCurrentScreenshotExtension()
 {
 	auto provider = GetScreenshotProvider();
@@ -68,6 +71,10 @@ std::string_view GetCurrentScreenshotExtension()
 
 /**
  * Callback of the screenshot generator that dumps the current video buffer.
+ * @param buf Videobuffer with same bitdepth as current blitter
+ * @param y First line to render
+ * @param pitch Pitch of the videobuffer
+ * @param n Number of lines to render
  * @see ScreenshotCallback
  */
 static void CurrentScreenCallback(void *buf, uint y, uint pitch, uint n)
@@ -137,7 +144,7 @@ static std::string_view MakeScreenshotName(std::string_view default_fn, std::str
 	bool generate = _screenshot_name.empty();
 
 	if (generate) {
-		if (_game_mode == GM_EDITOR || _game_mode == GM_MENU || _local_company == COMPANY_SPECTATOR) {
+		if (_game_mode == GameMode::Editor || _game_mode == GameMode::Menu || _local_company == COMPANY_SPECTATOR) {
 			_screenshot_name = default_fn;
 		} else {
 			_screenshot_name = GenerateDefaultSaveName();
@@ -169,7 +176,11 @@ static std::string_view MakeScreenshotName(std::string_view default_fn, std::str
 	return _full_screenshot_path;
 }
 
-/** Make a screenshot of the current screen. */
+/**
+ * Make a screenshot of the current screen.
+ * @param crashlog Whether this is called in the context of a crashlog, for the file name.
+ * @return \c true iff the screenshot was made successfully.
+ */
 static bool MakeSmallScreenshot(bool crashlog)
 {
 	auto provider = GetScreenshotProvider();
@@ -285,7 +296,7 @@ static bool MakeLargeWorldScreenshot(ScreenshotType t, uint32_t width = 0, uint3
 }
 
 /**
- * Callback for generating a heightmap. Supports 8bpp grayscale only.
+ * Callback for generating a heightmap. Supports 8bpp greyscale only.
  * @param buffer   Destination buffer.
  * @param y        Line number of the first line to write.
  * @param n        Number of lines to write.
@@ -310,6 +321,7 @@ static void HeightmapCallback(void *buffer, uint y, uint, uint n)
 /**
  * Make a heightmap of the current map.
  * @param filename Filename to use for saving.
+ * @return \c true iff the screenshot was made successfully.
  */
 bool MakeHeightmapScreenshot(std::string_view filename)
 {
@@ -432,12 +444,12 @@ static bool RealMakeScreenshot(ScreenshotType t, const std::string &name, uint32
 
 	if (ret) {
 		if (t == SC_HEIGHTMAP) {
-			ShowErrorMessage(GetEncodedString(STR_MESSAGE_HEIGHTMAP_SUCCESSFULLY, _screenshot_name, _heightmap_highest_peak), {}, WL_WARNING);
+			ShowErrorMessage(GetEncodedString(STR_MESSAGE_HEIGHTMAP_SUCCESSFULLY, _screenshot_name, _heightmap_highest_peak), {}, WarningLevel::Warning);
 		} else {
-			ShowErrorMessage(GetEncodedString(STR_MESSAGE_SCREENSHOT_SUCCESSFULLY, _screenshot_name), {}, WL_WARNING);
+			ShowErrorMessage(GetEncodedString(STR_MESSAGE_SCREENSHOT_SUCCESSFULLY, _screenshot_name), {}, WarningLevel::Warning);
 		}
 	} else {
-		ShowErrorMessage(GetEncodedString(STR_ERROR_SCREENSHOT_FAILED), {}, WL_ERROR);
+		ShowErrorMessage(GetEncodedString(STR_ERROR_SCREENSHOT_FAILED), {}, WarningLevel::Error);
 	}
 
 	return ret;
@@ -493,6 +505,7 @@ static void MinimapScreenCallback(void *buf, uint y, uint pitch, uint n)
 
 /**
  * Make a minimap screenshot.
+ * @return \c true iff the screenshot was made successfully.
  */
 bool MakeMinimapWorldScreenshot()
 {

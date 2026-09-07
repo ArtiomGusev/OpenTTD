@@ -91,7 +91,8 @@ SQUnsignedInteger TranslateIndex(const SQObjectPtr &idx)
 SQWeakRef *SQRefCounted::GetWeakRef(SQObjectType type)
 {
 	if(!_weakref) {
-		sq_new(_weakref,SQWeakRef);
+		_weakref = (SQWeakRef *)sq_vm_malloc(sizeof(SQWeakRef));
+		new (_weakref, sizeof(SQWeakRef)) SQWeakRef();
 		_weakref->_obj._type = type;
 		_weakref->_obj._unVal.pRefCounted = this;
 	}
@@ -244,7 +245,7 @@ bool SafeWrite(HSQUIRRELVM v,SQWRITEFUNC write,SQUserPointer up,SQUserPointer de
 bool SafeRead(HSQUIRRELVM v,SQWRITEFUNC read,SQUserPointer up,SQUserPointer dest,SQInteger size)
 {
 	if(size && read(up,dest,size) != size) {
-		v->Raise_Error("io error, read function failure, the origin stream could be corrupted/trucated");
+		v->Raise_Error("io error, read function failure, the origin stream could be corrupted/truncated");
 		return false;
 	}
 	return true;

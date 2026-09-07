@@ -2,12 +2,13 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file gfx.cpp Handling of drawing text and other gfx related stuff. */
 
 #include "stdafx.h"
+#include "gfx_func.h"
 #include "gfx_layout.h"
 #include "progress.h"
 #include "zoom_func.h"
@@ -21,19 +22,19 @@
 #include "window_func.h"
 #include "newgrf_debug.h"
 #include "core/backup_type.hpp"
-#include "core/container_func.hpp"
 #include "core/geometry_func.hpp"
 #include "viewport_func.h"
 
+#include "table/animcursors.h"
 #include "table/string_colours.h"
 #include "table/sprites.h"
 #include "table/control_codes.h"
 
 #include "safeguards.h"
 
-uint8_t _dirkeys;        ///< 1 = left, 2 = up, 4 = right, 8 = down
+DirectionKeys _dirkeys; ///< Pressed direction keys.
 bool _fullscreen;
-uint8_t _support8bpp;
+Support8bpp _support8bpp; ///< State of the support for 8bpp graphics.
 CursorVars _cursor;
 bool _ctrl_pressed;   ///< Is Ctrl pressed?
 bool _shift_pressed;  ///< Is Shift pressed?
@@ -46,11 +47,11 @@ DrawPixelInfo _screen;
 bool _screen_disable_anim = false;   ///< Disable palette animation (important for 32bpp-anim blitter during giant screenshot)
 std::atomic<bool> _exit_game;
 GameMode _game_mode;
-SwitchMode _switch_mode;  ///< The next mainloop command.
+SwitchMode _switch_mode; ///< The next mainloop command.
 PauseModes _pause_mode;
 GameSessionStats _game_session_stats; ///< Statistics about the current session.
 
-static uint8_t _stringwidth_table[FS_END][224]; ///< Cache containing width of often used characters. @see GetCharacterWidth()
+static EnumIndexArray<std::array<uint8_t, 244>, FontSize, FontSize::End> _stringwidth_table; ///< Cache containing width of often used characters. @see GetCharacterWidth()
 DrawPixelInfo *_cur_dpi;
 
 static void GfxMainBlitterViewport(const Sprite *sprite, int x, int y, BlitterMode mode, const SubSprite *sub = nullptr, SpriteID sprite_id = SPR_CURSOR_MOUSE);
@@ -106,13 +107,13 @@ void GfxScroll(int left, int top, int width, int height, int xo, int yo)
  * @param top Minimum Y (inclusive)
  * @param right Maximum X (inclusive)
  * @param bottom Maximum Y (inclusive)
- * @param colour A 8 bit palette index (FILLRECT_OPAQUE and FILLRECT_CHECKER) or a recolour spritenumber (FILLRECT_RECOLOUR)
+ * @param colour A 8 bit palette index (FillRectMode::Opaque and FillRectMode::Checker) or a recolour spritenumber (FillRectMode::Recolour)
  * @param mode
- *         FILLRECT_OPAQUE:   Fill the rectangle with the specified colour
- *         FILLRECT_CHECKER:  Like FILLRECT_OPAQUE, but only draw every second pixel (used to grey out things)
- *         FILLRECT_RECOLOUR:  Apply a recolour sprite to every pixel in the rectangle currently on screen
+ *         FillRectMode::Opaque: Fill the rectangle with the specified colour
+ *         FillRectMode::Checker: Like FillRectMode::Opaque, but only draw every second pixel (used to grey out things)
+ *         FillRectMode::Recolour: Apply a recolour sprite to every pixel in the rectangle currently on screen
  */
-void GfxFillRect(int left, int top, int right, int bottom, int colour, FillRectMode mode)
+void GfxFillRect(int left, int top, int right, int bottom, const std::variant<PixelColour, PaletteID> &colour, FillRectMode mode)
 {
 	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
 	const DrawPixelInfo *dpi = _cur_dpi;
@@ -140,18 +141,19 @@ void GfxFillRect(int left, int top, int right, int bottom, int colour, FillRectM
 	dst = blitter->MoveTo(dpi->dst_ptr, left, top);
 
 	switch (mode) {
-		default: // FILLRECT_OPAQUE
-			blitter->DrawRect(dst, right, bottom, (uint8_t)colour);
+		default: // FillRectMode::Opaque
+			blitter->DrawRect(dst, right, bottom, std::get<PixelColour>(colour));
 			break;
 
-		case FILLRECT_RECOLOUR:
-			blitter->DrawColourMappingRect(dst, right, bottom, GB(colour, 0, PALETTE_WIDTH));
+		case FillRectMode::Recolour:
+			blitter->DrawColourMappingRect(dst, right, bottom, GB(std::get<PaletteID>(colour), 0, PALETTE_WIDTH));
 			break;
 
-		case FILLRECT_CHECKER: {
+		case FillRectMode::Checker: {
 			uint8_t bo = (oleft - left + dpi->left + otop - top + dpi->top) & 1;
+			PixelColour pc = std::get<PixelColour>(colour);
 			do {
-				for (int i = (bo ^= 1); i < right; i += 2) blitter->SetPixel(dst, i, 0, (uint8_t)colour);
+				for (int i = (bo ^= 1); i < right; i += 2) blitter->SetPixel(dst, i, 0, pc);
 				dst = blitter->MoveTo(dst, 0, 1);
 			} while (--bottom > 0);
 			break;
@@ -202,13 +204,13 @@ static std::vector<LineSegment> MakePolygonSegments(std::span<const Point> shape
  * @note For rectangles the GfxFillRect function will be faster.
  * @pre dpi->zoom == ZoomLevel::Min
  * @param shape List of points on the polygon.
- * @param colour An 8 bit palette index (FILLRECT_OPAQUE and FILLRECT_CHECKER) or a recolour spritenumber (FILLRECT_RECOLOUR).
+ * @param colour An 8 bit palette index (FillRectMode::Opaque and FillRectMode::Checker) or a recolour spritenumber (FillRectMode::Recolour).
  * @param mode
- *         FILLRECT_OPAQUE:   Fill the polygon with the specified colour.
- *         FILLRECT_CHECKER:  Fill every other pixel with the specified colour, in a checkerboard pattern.
- *         FILLRECT_RECOLOUR: Apply a recolour sprite to every pixel in the polygon.
+ *         FillRectMode::Opaque: Fill the polygon with the specified colour.
+ *         FillRectMode::Checker: Fill every other pixel with the specified colour, in a checkerboard pattern.
+ *         FillRectMode::Recolour: Apply a recolour sprite to every pixel in the polygon.
  */
-void GfxFillPolygon(std::span<const Point> shape, int colour, FillRectMode mode)
+void GfxFillPolygon(std::span<const Point> shape, const std::variant<PixelColour, PaletteID> &colour, FillRectMode mode)
 {
 	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
 	const DrawPixelInfo *dpi = _cur_dpi;
@@ -276,19 +278,21 @@ void GfxFillPolygon(std::span<const Point> shape, int colour, FillRectMode mode)
 			/* Fill line y from x1 to x2. */
 			void *dst = blitter->MoveTo(dpi->dst_ptr, x1, y);
 			switch (mode) {
-				default: // FILLRECT_OPAQUE
-					blitter->DrawRect(dst, x2 - x1, 1, (uint8_t)colour);
+				default: // FillRectMode::Opaque
+					blitter->DrawRect(dst, x2 - x1, 1, std::get<PixelColour>(colour));
 					break;
-				case FILLRECT_RECOLOUR:
-					blitter->DrawColourMappingRect(dst, x2 - x1, 1, GB(colour, 0, PALETTE_WIDTH));
+				case FillRectMode::Recolour:
+					blitter->DrawColourMappingRect(dst, x2 - x1, 1, GB(std::get<PaletteID>(colour), 0, PALETTE_WIDTH));
 					break;
-				case FILLRECT_CHECKER:
+				case FillRectMode::Checker: {
 					/* Fill every other pixel, offset such that the sum of filled pixels' X and Y coordinates is odd.
 					 * This creates a checkerboard effect. */
+					PixelColour pc = std::get<PixelColour>(colour);
 					for (int x = (x1 + y) & 1; x < x2 - x1; x += 2) {
-						blitter->SetPixel(dst, x, 0, (uint8_t)colour);
+						blitter->SetPixel(dst, x, 0, pc);
 					}
 					break;
+				}
 			}
 		}
 
@@ -311,7 +315,7 @@ void GfxFillPolygon(std::span<const Point> shape, int colour, FillRectMode mode)
  * @param width Width of the line.
  * @param dash Length of dashes for dashed lines. 0 means solid line.
  */
-static inline void GfxDoDrawLine(void *video, int x, int y, int x2, int y2, int screen_width, int screen_height, uint8_t colour, int width, int dash = 0)
+static inline void GfxDoDrawLine(void *video, int x, int y, int x2, int y2, int screen_width, int screen_height, PixelColour colour, int width, int dash = 0)
 {
 	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
 
@@ -337,6 +341,9 @@ static inline void GfxDoDrawLine(void *video, int x, int y, int x2, int y2, int 
 		grade_x /= 2;
 		margin  *= 2; // account for rounding errors
 	}
+
+	/* Prevent division by zero. */
+	if (grade_x == 0) grade_x = 1;
 
 	/* Imagine that the line is infinitely long and it intersects with
 	 * infinitely long left and right edges of the clipping rectangle.
@@ -384,7 +391,7 @@ static inline bool GfxPreprocessLine(DrawPixelInfo *dpi, int &x, int &y, int &x2
 	return true;
 }
 
-void GfxDrawLine(int x, int y, int x2, int y2, int colour, int width, int dash)
+void GfxDrawLine(int x, int y, int x2, int y2, PixelColour colour, int width, int dash)
 {
 	DrawPixelInfo *dpi = _cur_dpi;
 	if (GfxPreprocessLine(dpi, x, y, x2, y2, width)) {
@@ -392,7 +399,7 @@ void GfxDrawLine(int x, int y, int x2, int y2, int colour, int width, int dash)
 	}
 }
 
-void GfxDrawLineUnscaled(int x, int y, int x2, int y2, int colour)
+void GfxDrawLineUnscaled(int x, int y, int x2, int y2, PixelColour colour)
 {
 	DrawPixelInfo *dpi = _cur_dpi;
 	if (GfxPreprocessLine(dpi, x, y, x2, y2, 1)) {
@@ -433,7 +440,7 @@ void DrawBox(int x, int y, int dx1, int dy1, int dx2, int dy2, int dx3, int dy3)
 	 *            ....V.
 	 */
 
-	static const uint8_t colour = PC_WHITE;
+	static constexpr PixelColour colour = PC_WHITE;
 
 	GfxDrawLineUnscaled(x, y, x + dx1, y + dy1, colour);
 	GfxDrawLineUnscaled(x, y, x + dx2, y + dy2, colour);
@@ -454,7 +461,7 @@ void DrawBox(int x, int y, int dx1, int dy1, int dx2, int dy2, int dx3, int dy3)
  * @param width Width of the outline.
  * @param dash Length of dashes for dashed lines. 0 means solid lines.
  */
-void DrawRectOutline(const Rect &r, int colour, int width, int dash)
+void DrawRectOutline(const Rect &r, PixelColour colour, int width, int dash)
 {
 	GfxDrawLine(r.left,  r.top,    r.right, r.top,    colour, width, dash);
 	GfxDrawLine(r.left,  r.top,    r.left,  r.bottom, colour, width, dash);
@@ -466,17 +473,16 @@ void DrawRectOutline(const Rect &r, int colour, int width, int dash)
  * Set the colour remap to be for the given colour.
  * @param colour the new colour of the remap.
  */
-static void SetColourRemap(TextColour colour)
+static void SetColourRemap(ExtendedTextColour colour)
 {
-	if (colour == TC_INVALID) return;
+	if (colour == TextColour::Invalid) return;
 
 	/* Black strings have no shading ever; the shading is black, so it
 	 * would be invisible at best, but it actually makes it illegible. */
-	bool no_shade   = (colour & TC_NO_SHADE) != 0 || colour == TC_BLACK;
-	bool raw_colour = (colour & TC_IS_PALETTE_COLOUR) != 0;
-	colour &= ~(TC_NO_SHADE | TC_IS_PALETTE_COLOUR | TC_FORCED);
+	bool no_shade = colour.flags.Test(ExtendedTextColourFlag::NoShade) || colour.colour == TextColour::Black;
+	bool raw_colour = colour.flags.Test(ExtendedTextColourFlag::IsPaletteColour);
 
-	_string_colourremap[1] = raw_colour ? (uint8_t)colour : _string_colourmap[colour];
+	_string_colourremap[1] = raw_colour ? to_underlying(colour.colour) : _string_colourmap[to_underlying(colour.colour)].p;
 	_string_colourremap[2] = no_shade ? 0 : 1;
 	_colour_remap_ptr = _string_colourremap;
 }
@@ -497,7 +503,7 @@ static void SetColourRemap(TextColour colour)
  * @return In case of left or center alignment the right most pixel we have drawn to.
  *         In case of right alignment the left most pixel we have drawn to.
  */
-static int DrawLayoutLine(const ParagraphLayouter::Line &line, int y, int left, int right, StringAlignment align, bool underline, bool truncation, TextColour default_colour)
+static int DrawLayoutLine(const ParagraphLayouter::Line &line, int y, int left, int right, Alignment align, bool underline, bool truncation, ExtendedTextColour default_colour)
 {
 	if (line.CountRuns() == 0) return 0;
 
@@ -523,10 +529,9 @@ static int DrawLayoutLine(const ParagraphLayouter::Line &line, int y, int left, 
 	int max_x = right; // The maximum x position to draw normal glyphs on.
 
 	truncation &= max_w < w;         // Whether we need to do truncation.
-	int dot_width = 0;               // Cache for the width of the dot.
-	const Sprite *dot_sprite = nullptr; // Cache for the sprite of the dot.
-	bool dot_has_shadow = false;     // Whether the dot's font requires shadows.
+	int truncation_width = 0; // Width of the ellipsis string.
 
+	std::optional<Layouter> truncation_layout; ///< Layout for truncation ellipsis.
 	if (truncation) {
 		/*
 		 * Assumption may be made that all fonts of a run are of the same size.
@@ -534,43 +539,43 @@ static int DrawLayoutLine(const ParagraphLayouter::Line &line, int y, int left, 
 		 * another size would be chosen it won't have truncated too little for
 		 * the truncation dots.
 		 */
-		FontCache *fc = line.GetVisualRun(0).GetFont()->fc;
-		dot_has_shadow = fc->GetDrawGlyphShadow();
-		GlyphID dot_glyph = fc->MapCharToGlyph('.');
-		dot_width = fc->GetGlyphWidth(dot_glyph);
-		dot_sprite = fc->GetGlyph(dot_glyph);
+		truncation_layout.emplace(GetEllipsis(), INT32_MAX, line.GetVisualRun(0).GetFont()->fc->GetSize());
+		truncation_width = truncation_layout->GetBounds().width;
+
+		/* Is there enough space even for an ellipsis? */
+		if (max_w < truncation_width) return (_current_text_dir == TD_RTL) ? left : right;
 
 		if (_current_text_dir == TD_RTL) {
-			min_x += 3 * dot_width;
-			offset_x = w - 3 * dot_width - max_w;
+			min_x += truncation_width;
+			offset_x = w - max_w;
 		} else {
-			max_x -= 3 * dot_width;
+			max_x -= truncation_width;
 		}
 
 		w = max_w;
 	}
 
 	/* In case we have a RTL language we swap the alignment. */
-	if (!(align & SA_FORCE) && _current_text_dir == TD_RTL && (align & SA_HOR_MASK) != SA_HOR_CENTER) align ^= SA_RIGHT;
+	align.h = align.ResolveRTL();
 
 	/* right is the right most position to draw on. In this case we want to do
 	 * calculations with the width of the string. In comparison right can be
 	 * seen as lastof(todraw) and width as lengthof(todraw). They differ by 1.
 	 * So most +1/-1 additions are to move from lengthof to 'indices'.
 	 */
-	switch (align & SA_HOR_MASK) {
-		case SA_LEFT:
+	switch (align.h) {
+		case AlignmentH::ForceLeft:
 			/* right + 1 = left + w */
 			right = left + w - 1;
 			break;
 
-		case SA_HOR_CENTER:
+		case AlignmentH::Centre:
 			left  = RoundDivSU(right + 1 + left - w, 2);
 			/* right + 1 = left + w */
 			right = left + w - 1;
 			break;
 
-		case SA_RIGHT:
+		case AlignmentH::ForceRight:
 			left = right + 1 - w;
 			break;
 
@@ -580,34 +585,35 @@ static int DrawLayoutLine(const ParagraphLayouter::Line &line, int y, int left, 
 
 	const uint shadow_offset = ScaleGUITrad(1);
 
-	/* Draw shadow, then foreground */
-	for (bool do_shadow : { true, false }) {
-		bool colour_has_shadow = false;
-		for (int run_index = 0; run_index < line.CountRuns(); run_index++) {
+	auto draw_line = [&](const ParagraphLayouter::Line &line, bool do_shadow, int left, int min_x, int max_x, bool truncation, ExtendedTextColour initial_colour) {
+		const DrawPixelInfo *dpi = _cur_dpi;
+		int dpi_left = dpi->left;
+		int dpi_right = dpi->left + dpi->width - 1;
+		ExtendedTextColour last_colour{initial_colour};
+
+		for (size_t run_index = 0; run_index < line.CountRuns(); run_index++) {
 			const ParagraphLayouter::VisualRun &run = line.GetVisualRun(run_index);
 			const auto &glyphs = run.GetGlyphs();
 			const auto &positions = run.GetPositions();
 			const Font *f = run.GetFont();
 
 			FontCache *fc = f->fc;
-			TextColour colour = f->colour;
-			if (colour == TC_INVALID || HasFlag(default_colour, TC_FORCED)) colour = default_colour;
-			colour_has_shadow = (colour & TC_NO_SHADE) == 0 && colour != TC_BLACK;
-			SetColourRemap(do_shadow ? TC_BLACK : colour); // the last run also sets the colour for the truncation dots
+			ExtendedTextColour colour{f->colour};
+			if (colour == TextColour::Invalid || initial_colour.flags.Test(ExtendedTextColourFlag::Forced)) colour = initial_colour;
+			bool colour_has_shadow = !colour.flags.Test(ExtendedTextColourFlag::NoShade) && colour != TextColour::Black;
+			/* Update the last colour for the truncation ellipsis. */
+			last_colour = colour;
 			if (do_shadow && (!fc->GetDrawGlyphShadow() || !colour_has_shadow)) continue;
+			SetColourRemap(do_shadow ? TextColour::Black : colour);
 
-			DrawPixelInfo *dpi = _cur_dpi;
-			int dpi_left  = dpi->left;
-			int dpi_right = dpi->left + dpi->width - 1;
-
-			for (int i = 0; i < run.GetGlyphCount(); i++) {
+			for (size_t i = 0; i < run.GetGlyphCount(); i++) {
 				GlyphID glyph = glyphs[i];
 
 				/* Not a valid glyph (empty) */
 				if (glyph == 0xFFFF) continue;
 
-				int begin_x = positions[i].left + left - offset_x;
-				int end_x = positions[i].right + left - offset_x;
+				int begin_x = positions[i].left + left;
+				int end_x = positions[i].right + left;
 				int top = positions[i].top + y;
 
 				/* Truncated away. */
@@ -622,20 +628,24 @@ static int DrawLayoutLine(const ParagraphLayouter::Line &line, int y, int left, 
 				GfxMainBlitter(sprite, begin_x + (do_shadow ? shadow_offset : 0), top + (do_shadow ? shadow_offset : 0), BlitterMode::ColourRemap);
 			}
 		}
+		return last_colour;
+	};
 
-		if (truncation && (!do_shadow || (dot_has_shadow && colour_has_shadow))) {
-			int x = (_current_text_dir == TD_RTL) ? left : (right - 3 * dot_width);
-			for (int i = 0; i < 3; i++, x += dot_width) {
-				GfxMainBlitter(dot_sprite, x + (do_shadow ? shadow_offset : 0), y + (do_shadow ? shadow_offset : 0), BlitterMode::ColourRemap);
-			}
+	/* Draw shadow, then foreground */
+	for (bool do_shadow : {true, false}) {
+		ExtendedTextColour colour = draw_line(line, do_shadow, left - offset_x, min_x, max_x, truncation, default_colour);
+
+		if (truncation) {
+			int x = (_current_text_dir == TD_RTL) ? left : (right - truncation_width);
+			draw_line(*truncation_layout->front(), do_shadow, x, INT32_MIN, INT32_MAX, false, colour);
 		}
 	}
 
 	if (underline) {
-		GfxFillRect(left, y + h, right, y + h + WidgetDimensions::scaled.bevel.top - 1, _string_colourremap[1]);
+		GfxFillRect(left, y + h, right, y + h + WidgetDimensions::scaled.bevel.top - 1, PixelColour{_string_colourremap[1]});
 	}
 
-	return (align & SA_HOR_MASK) == SA_RIGHT ? left : right;
+	return align.h == AlignmentH::ForceRight ? left : right;
 }
 
 /**
@@ -655,10 +665,10 @@ static int DrawLayoutLine(const ParagraphLayouter::Line &line, int y, int left, 
  * @return In case of left or center alignment the right most pixel we have drawn to.
  *         In case of right alignment the left most pixel we have drawn to.
  */
-int DrawString(int left, int right, int top, std::string_view str, TextColour colour, StringAlignment align, bool underline, FontSize fontsize)
+int DrawString(int left, int right, int top, std::string_view str, ExtendedTextColour colour, Alignment align, bool underline, FontSize fontsize)
 {
 	/* The string may contain control chars to change the font, just use the biggest font for clipping. */
-	int max_height = std::max({GetCharacterHeight(FS_SMALL), GetCharacterHeight(FS_NORMAL), GetCharacterHeight(FS_LARGE), GetCharacterHeight(FS_MONO)});
+	int max_height = std::max({GetCharacterHeight(FontSize::Small), GetCharacterHeight(FontSize::Normal), GetCharacterHeight(FontSize::Large), GetCharacterHeight(FontSize::Monospace)});
 
 	/* Funny glyphs may extent outside the usual bounds, so relax the clipping somewhat. */
 	int extra = max_height / 2;
@@ -691,7 +701,7 @@ int DrawString(int left, int right, int top, std::string_view str, TextColour co
  * @return In case of left or center alignment the right most pixel we have drawn to.
  *         In case of right alignment the left most pixel we have drawn to.
  */
-int DrawString(int left, int right, int top, StringID str, TextColour colour, StringAlignment align, bool underline, FontSize fontsize)
+int DrawString(int left, int right, int top, StringID str, ExtendedTextColour colour, Alignment align, bool underline, FontSize fontsize)
 {
 	return DrawString(left, right, top, GetString(str), colour, align, underline, fontsize);
 }
@@ -700,6 +710,7 @@ int DrawString(int left, int right, int top, StringID str, TextColour colour, St
  * Calculates height of string (in pixels). The string is changed to a multiline string if needed.
  * @param str string to check
  * @param maxw maximum string width
+ * @param fontsize The size of the initial characters.
  * @return height of pixels of string when it is drawn
  */
 int GetStringHeight(std::string_view str, int maxw, FontSize fontsize)
@@ -748,6 +759,7 @@ Dimension GetStringMultiLineBoundingBox(StringID str, const Dimension &suggestio
  * Calculate string bounding box for multi-line strings.
  * @param str        String to check.
  * @param suggestion Suggested bounding box.
+ * @param fontsize The size of the initial characters.
  * @return Bounding box for the multi-line string, may be bigger than \a suggestion.
  */
 Dimension GetStringMultiLineBoundingBox(std::string_view str, const Dimension &suggestion, FontSize fontsize)
@@ -770,9 +782,9 @@ Dimension GetStringMultiLineBoundingBox(std::string_view str, const Dimension &s
  * @param underline Whether to underline all strings
  * @param fontsize The size of the initial characters.
  *
- * @return If \a align is #SA_BOTTOM, the top to where we have written, else the bottom to where we have written.
+ * @return If \a align is #AlignmentV::Bottom, the top to where we have written, else the bottom to where we have written.
  */
-int DrawStringMultiLine(int left, int right, int top, int bottom, std::string_view str, TextColour colour, StringAlignment align, bool underline, FontSize fontsize)
+int DrawStringMultiLine(int left, int right, int top, int bottom, std::string_view str, ExtendedTextColour colour, Alignment align, bool underline, FontSize fontsize)
 {
 	int maxw = right - left + 1;
 	int maxh = bottom - top + 1;
@@ -784,16 +796,16 @@ int DrawStringMultiLine(int left, int right, int top, int bottom, std::string_vi
 	Layouter layout(str, maxw, fontsize);
 	int total_height = layout.GetBounds().height;
 	int y;
-	switch (align & SA_VERT_MASK) {
-		case SA_TOP:
+	switch (align.v) {
+		case AlignmentV::Top:
 			y = top;
 			break;
 
-		case SA_VERT_CENTER:
+		case AlignmentV::Middle:
 			y = RoundDivSU(bottom + top - total_height, 2);
 			break;
 
-		case SA_BOTTOM:
+		case AlignmentV::Bottom:
 			y = bottom - total_height;
 			break;
 
@@ -815,7 +827,7 @@ int DrawStringMultiLine(int left, int right, int top, int bottom, std::string_vi
 		y += line_height;
 	}
 
-	return ((align & SA_VERT_MASK) == SA_BOTTOM) ? first_line : last_line;
+	return align.v == AlignmentV::Bottom ? first_line : last_line;
 }
 
 /**
@@ -832,9 +844,9 @@ int DrawStringMultiLine(int left, int right, int top, int bottom, std::string_vi
  * @param underline Whether to underline all strings
  * @param fontsize The size of the initial characters.
  *
- * @return If \a align is #SA_BOTTOM, the top to where we have written, else the bottom to where we have written.
+ * @return If \a align is #AlignmentV::Bottom, the top to where we have written, else the bottom to where we have written.
  */
-int DrawStringMultiLine(int left, int right, int top, int bottom, StringID str, TextColour colour, StringAlignment align, bool underline, FontSize fontsize)
+int DrawStringMultiLine(int left, int right, int top, int bottom, StringID str, ExtendedTextColour colour, Alignment align, bool underline, FontSize fontsize)
 {
 	return DrawStringMultiLine(left, right, top, bottom, GetString(str), colour, align, underline, fontsize);
 }
@@ -842,7 +854,7 @@ int DrawStringMultiLine(int left, int right, int top, int bottom, StringID str, 
 /**
  * Draw a multiline string, possibly over multiple lines, if the region is within the current display clipping area.
  * @note With clipping, it is not possible to determine how tall the rendered text will be, as it's not layouted.
- *       Regulard DrawStringMultiLine must be used if the height needs to be known.
+ *       Regular DrawStringMultiLine must be used if the height needs to be known.
  *
  * @param left   The left most position to draw on.
  * @param right  The right most position to draw on.
@@ -857,10 +869,10 @@ int DrawStringMultiLine(int left, int right, int top, int bottom, StringID str, 
  *
  * @return true iff the string was drawn.
  */
-bool DrawStringMultiLineWithClipping(int left, int right, int top, int bottom, std::string_view str, TextColour colour, StringAlignment align, bool underline, FontSize fontsize)
+bool DrawStringMultiLineWithClipping(int left, int right, int top, int bottom, std::string_view str, ExtendedTextColour colour, Alignment align, bool underline, FontSize fontsize)
 {
 	/* The string may contain control chars to change the font, just use the biggest font for clipping. */
-	int max_height = std::max({GetCharacterHeight(FS_SMALL), GetCharacterHeight(FS_NORMAL), GetCharacterHeight(FS_LARGE), GetCharacterHeight(FS_MONO)});
+	int max_height = std::max({GetCharacterHeight(FontSize::Small), GetCharacterHeight(FontSize::Normal), GetCharacterHeight(FontSize::Large), GetCharacterHeight(FontSize::Monospace)});
 
 	/* Funny glyphs may extent outside the usual bounds, so relax the clipping somewhat. */
 	int extra = max_height / 2;
@@ -894,6 +906,7 @@ Dimension GetStringBoundingBox(std::string_view str, FontSize start_fontsize)
  * Get bounding box of a string.
  * Has the same restrictions as #GetStringBoundingBox(std::string_view str, FontSize start_fontsize).
  * @param strid String to examine.
+ * @param start_fontsize Fontsize to start the text with.
  * @return Width and height of the bounding box for the string in pixels.
  */
 Dimension GetStringBoundingBox(StringID strid, FontSize start_fontsize)
@@ -941,9 +954,9 @@ Dimension GetStringListBoundingBox(std::span<const StringID> list, FontSize font
 void DrawCharCentered(char32_t c, const Rect &r, TextColour colour)
 {
 	SetColourRemap(colour);
-	GfxMainBlitter(GetGlyph(FS_NORMAL, c),
-		CentreBounds(r.left, r.right, GetCharacterWidth(FS_NORMAL, c)),
-		CentreBounds(r.top, r.bottom, GetCharacterHeight(FS_NORMAL)),
+	GfxMainBlitter(GetGlyph(FontSize::Normal, c),
+		CentreBounds(r.left, r.right, GetCharacterWidth(FontSize::Normal, c)),
+		CentreBounds(r.top, r.bottom, GetCharacterHeight(FontSize::Normal)),
 		BlitterMode::ColourRemap);
 }
 
@@ -1047,6 +1060,7 @@ void DrawSprite(SpriteID img, PaletteID pal, int x, int y, const SubSprite *sub,
  * @param y The Y location to draw.
  * @param mode The settings for the blitter to pass.
  * @param sub Whether to only draw a sub set of the sprite.
+ * @param sprite_id The unique identifier of the sprite for NewGRF debug purposes.
  * @param zoom The zoom level at which to draw the sprites.
  * @param dst Optional parameter for a different blitting destination.
  * @tparam ZOOM_BASE The factor required to get the sub sprite information into the right size.
@@ -1240,14 +1254,14 @@ static void GfxMainBlitter(const Sprite *sprite, int x, int y, BlitterMode mode,
 }
 
 /**
- * Initialize _stringwidth_table cache
- * @param monospace Whether to load the monospace cache or the normal fonts.
+ * Initialize _stringwidth_table cache for the specified font sizes.
+ * @param fontsizes Font sizes to initialise.
  */
-void LoadStringWidthTable(bool monospace)
+void LoadStringWidthTable(FontSizes fontsizes)
 {
-	ClearFontCache();
+	FontCache::ClearFontCaches(fontsizes);
 
-	for (FontSize fs = monospace ? FS_MONO : FS_BEGIN; fs < (monospace ? FS_END : FS_MONO); fs++) {
+	for (FontSize fs : fontsizes) {
 		for (uint i = 0; i != 224; i++) {
 			_stringwidth_table[fs][i] = GetGlyphWidth(fs, i + 32);
 		}
@@ -1317,6 +1331,10 @@ void ScreenSizeChanged()
 
 	/* screen size changed and the old bitmap is invalid now, so we don't want to undraw it */
 	_cursor.visible = false;
+
+	if (VideoDriver::GetInstance() != nullptr) {
+		if (AdjustGUIZoom(true)) ReInitAllWindows(true);
+	}
 }
 
 void UndrawMouseCursor()
@@ -1651,15 +1669,15 @@ static void SetCursorSprite(CursorID cursor, PaletteID pal)
 
 static void SwitchAnimatedCursor()
 {
-	const AnimCursor *cur = _cursor.animate_cur;
-
-	if (cur == nullptr || cur->sprite == AnimCursor::LAST) cur = _cursor.animate_list;
+	if (_cursor.animate_cur == std::end(_cursor.animate_list)) {
+		_cursor.animate_cur = std::begin(_cursor.animate_list);
+	}
 
 	assert(!_cursor.sprites.empty());
-	SetCursorSprite(cur->sprite, _cursor.sprites[0].image.pal);
+	SetCursorSprite(_cursor.animate_cur->sprite, _cursor.sprites[0].image.pal);
 
-	_cursor.animate_timeout = cur->display_time;
-	_cursor.animate_cur     = cur + 1;
+	_cursor.animate_timeout = _cursor.animate_cur->display_time;
+	++_cursor.animate_cur;
 }
 
 void CursorTick()
@@ -1702,13 +1720,27 @@ void SetMouseCursor(CursorID sprite, PaletteID pal)
  * @param table Array of animation states.
  * @see SetMouseCursor
  */
-void SetAnimatedMouseCursor(const AnimCursor *table)
+void SetAnimatedMouseCursor(std::span<const AnimCursor> table)
 {
 	assert(!_cursor.sprites.empty());
 	_cursor.animate_list = table;
-	_cursor.animate_cur = nullptr;
+	_cursor.animate_cur = std::end(table);
 	_cursor.sprites[0].image.pal = PAL_NONE;
 	SwitchAnimatedCursor();
+}
+
+/**
+ * Assign an animation or a non-animated sprite to the cursor.
+ * @param icon New shape of the mouse cursor.
+ * @param pal Palette to use.
+ */
+void SetCursor(CursorID icon, PaletteID pal)
+{
+	if ((icon & ANIMCURSOR_FLAG) != 0) {
+		SetAnimatedMouseCursor(_animcursors[icon & ~ANIMCURSOR_FLAG]);
+	} else {
+		SetMouseCursor(icon, pal);
+	}
 }
 
 /**
@@ -1777,7 +1809,12 @@ void UpdateGUIZoom()
 {
 	/* Determine real GUI zoom to use. */
 	if (_gui_scale_cfg == -1) {
-		_gui_scale = VideoDriver::GetInstance()->GetSuggestedUIScale();
+		/* Minimum design size of the game is 640x480. */
+		float xs = _screen.width / 640.f;
+		float ys = _screen.height / 480.f;
+		int scale = std::min(xs, ys) * 100;
+		/* Round down scaling to 25% increments and clamp to limits. */
+		_gui_scale = Clamp((scale / 25) * 25, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE);
 	} else {
 		_gui_scale = Clamp(_gui_scale_cfg, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE);
 	}
@@ -1798,6 +1835,8 @@ void UpdateGUIZoom()
  */
 bool AdjustGUIZoom(bool automatic)
 {
+	if (VideoDriver::GetInstance() == nullptr) return false;
+
 	ZoomLevel old_gui_zoom = _gui_zoom;
 	ZoomLevel old_font_zoom = _font_zoom;
 	int old_scale = _gui_scale;
@@ -1812,7 +1851,7 @@ bool AdjustGUIZoom(bool automatic)
 	if (old_font_zoom != _font_zoom) {
 		GfxClearFontSpriteCache();
 	}
-	ClearFontCache();
+	FontCache::ClearFontCaches(FONTSIZES_ALL);
 	LoadStringWidthTable();
 
 	SetupWidgetDimensions();

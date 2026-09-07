@@ -2,10 +2,10 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
-/** @file ai_info.cpp Implementation of AIInfo and AILibrary */
+/** @file ai_info.cpp Implementation of AIInfo and AILibrary. */
 
 #include "../stdafx.h"
 
@@ -21,6 +21,7 @@
 /**
  * Check if the API version provided by the AI is supported.
  * @param api_version The API version as provided by the AI.
+ * @return \c true if the given version is supported by this version of OpenTTD.
  */
 static bool CheckAPIVersion(const std::string &api_version)
 {
@@ -34,7 +35,7 @@ template <> SQInteger PushClassName<AIInfo, ScriptType::AI>(HSQUIRRELVM vm) { sq
 	/* Create the AIInfo class, and add the RegisterAI function */
 	DefSQClass<AIInfo, ScriptType::AI> SQAIInfo("AIInfo");
 	SQAIInfo.PreRegister(engine);
-	SQAIInfo.AddConstructor<void (AIInfo::*)(), 1>(engine, "x");
+	SQAIInfo.AddConstructor<void (AIInfo::*)()>(engine, "x");
 	SQAIInfo.DefSQAdvancedMethod(engine, &AIInfo::AddSetting, "AddSetting");
 	SQAIInfo.DefSQAdvancedMethod(engine, &AIInfo::AddLabels, "AddLabels");
 	SQAIInfo.DefSQConst(engine, ScriptConfigFlags{}.base(), "CONFIG_NONE");
@@ -80,7 +81,7 @@ template <> SQInteger PushClassName<AIInfo, ScriptType::AI>(HSQUIRRELVM vm) { sq
 	if (info->engine->MethodExists(info->SQ_instance, "GetAPIVersion")) {
 		if (!info->engine->CallStringMethod(info->SQ_instance, "GetAPIVersion", &info->api_version, MAX_GET_OPS)) return SQ_ERROR;
 		if (!CheckAPIVersion(info->api_version)) {
-			Debug(script, 1, "Loading info.nut from ({}.{}): GetAPIVersion returned invalid version", info->GetName(), info->GetVersion());
+			sq_throwerror(vm, fmt::format("Loading info.nut from ({}.{}): GetAPIVersion returned invalid version", info->GetName(), info->GetVersion()));
 			return SQ_ERROR;
 		}
 	} else {
@@ -90,7 +91,7 @@ template <> SQInteger PushClassName<AIInfo, ScriptType::AI>(HSQUIRRELVM vm) { sq
 	/* Remove the link to the real instance, else it might get deleted by RegisterAI() */
 	sq_setinstanceup(vm, 2, nullptr);
 	/* Register the AI to the base system */
-	info->GetScanner()->RegisterScript(info);
+	info->GetScanner()->RegisterScript(std::unique_ptr<AIInfo>{info});
 	return 0;
 }
 
@@ -108,7 +109,7 @@ template <> SQInteger PushClassName<AIInfo, ScriptType::AI>(HSQUIRRELVM vm) { sq
 	/* Remove the link to the real instance, else it might get deleted by RegisterAI() */
 	sq_setinstanceup(vm, 2, nullptr);
 	/* Register the AI to the base system */
-	static_cast<AIScannerInfo *>(info->GetScanner())->SetDummyAI(info);
+	static_cast<AIScannerInfo *>(info->GetScanner())->SetDummyAI(std::unique_ptr<AIInfo>(info));
 	return 0;
 }
 
@@ -136,22 +137,21 @@ bool AIInfo::CanLoadFromVersion(int version) const
 /* static */ SQInteger AILibrary::Constructor(HSQUIRRELVM vm)
 {
 	/* Create a new library */
-	AILibrary *library = new AILibrary();
+	auto library = std::make_unique<AILibrary>();
 
 	SQInteger res = ScriptInfo::Constructor(vm, *library);
 	if (res != 0) {
-		delete library;
 		return res;
 	}
 
 	/* Cache the category */
 	if (!library->CheckMethod("GetCategory") || !library->engine->CallStringMethod(library->SQ_instance, "GetCategory", &library->category, MAX_GET_OPS)) {
-		delete library;
 		return SQ_ERROR;
 	}
 
 	/* Register the Library to the base system */
-	library->GetScanner()->RegisterScript(library);
+	ScriptScanner *scanner = library->GetScanner();
+	scanner->RegisterScript(std::move(library));
 
 	return 0;
 }

@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file company_func.h Functions related to companies. */
@@ -18,7 +18,7 @@
 bool CheckTakeoverVehicleLimit(CompanyID cbig, CompanyID small);
 void ChangeOwnershipOfCompanyItems(Owner old_owner, Owner new_owner);
 std::array<StringParameter, 2> GetParamsForOwnedBy(Owner owner, TileIndex tile);
-void SetLocalCompany(CompanyID new_company);
+void SetLocalCompany(CompanyID new_company, bool switching_game = false);
 void ShowBuyCompanyDialog(CompanyID company, bool hostile_takeover);
 void CompanyAdminUpdate(const Company *company);
 void CompanyAdminBankrupt(CompanyID company_id);
@@ -28,7 +28,7 @@ void UpdateCompanyLiveries(Company *c);
 Money GetAvailableMoney(CompanyID company);
 Money GetAvailableMoneyForCommand();
 bool CheckCompanyHasMoney(CommandCost &cost);
-void SubtractMoneyFromCompany(const CommandCost &cost);
+void SubtractMoneyFromCompany(CompanyID company, const CommandCost &cost);
 void SubtractMoneyFromCompanyFract(CompanyID company, const CommandCost &cost);
 CommandCost CheckOwnership(Owner owner, TileIndex tile = {});
 CommandCost CheckTileOwnership(TileIndex tile);
@@ -36,8 +36,8 @@ CommandCost CheckTileOwnership(TileIndex tile);
 extern CompanyID _local_company;
 extern CompanyID _current_company;
 
-extern ReferenceThroughBaseContainer<std::array<Colours, MAX_COMPANIES>> _company_colours;
-extern CompanyManagerFace _company_manager_face;
+extern TypedIndexContainer<std::array<Colours, MAX_COMPANIES>, CompanyID> _company_colours;
+extern std::string _company_manager_face;
 PaletteID GetCompanyPalette(CompanyID company);
 
 /**

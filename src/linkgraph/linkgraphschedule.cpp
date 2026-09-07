@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file linkgraphschedule.cpp Definition of link graph schedule used for cargo distribution. */
@@ -43,7 +43,7 @@ void LinkGraphSchedule::SpawnNext()
 	assert(next == LinkGraph::Get(next->index));
 	this->schedule.pop_front();
 	if (LinkGraphJob::CanAllocateItem()) {
-		LinkGraphJob *job = new LinkGraphJob(*next);
+		LinkGraphJob *job = LinkGraphJob::Create(*next);
 		job->SpawnThread();
 		this->running.push_back(job);
 	} else {
@@ -75,7 +75,7 @@ void LinkGraphSchedule::JoinNext()
 	delete next; // implicitly joins the thread
 	if (LinkGraph::IsValidID(id)) {
 		LinkGraph *lg = LinkGraph::Get(id);
-		this->Unqueue(lg); // Unqueue to avoid double-queueing recycled IDs.
+		this->Dequeue(lg); // Dequeue to avoid double-queueing recycled IDs.
 		this->Queue(lg);
 	}
 }
@@ -171,7 +171,7 @@ void StateGameLoop_LinkGraphPauseControl()
 	if (_pause_mode.Test(PauseMode::LinkGraph)) {
 		/* We are paused waiting on a job, check the job every tick. */
 		if (!LinkGraphSchedule::instance.IsJoinWithUnfinishedJobDue()) {
-			Command<CMD_PAUSE>::Post(PauseMode::LinkGraph, false);
+			Command<Commands::Pause>::Post(PauseMode::LinkGraph, false);
 		}
 	} else if (_pause_mode.None() &&
 			TimerGameEconomy::date_fract == LinkGraphSchedule::SPAWN_JOIN_TICK - 2 &&
@@ -179,7 +179,7 @@ void StateGameLoop_LinkGraphPauseControl()
 			LinkGraphSchedule::instance.IsJoinWithUnfinishedJobDue()) {
 		/* Perform check two TimerGameEconomy::date_fract ticks before we would join, to make
 		 * sure it also works in multiplayer. */
-		Command<CMD_PAUSE>::Post(PauseMode::LinkGraph, true);
+		Command<Commands::Pause>::Post(PauseMode::LinkGraph, true);
 	}
 }
 
@@ -207,10 +207,10 @@ void OnTick_LinkGraph()
 		LinkGraphSchedule::instance.SpawnNext();
 	} else if (offset == (_settings_game.linkgraph.recalc_interval / EconomyTime::SECONDS_PER_DAY) / 2) {
 		if (!_networking || _network_server) {
-			PerformanceMeasurer::SetInactive(PFE_GL_LINKGRAPH);
+			PerformanceMeasurer::SetInactive(PerformanceElement::GameLoopLinkGraph);
 			LinkGraphSchedule::instance.JoinNext();
 		} else {
-			PerformanceMeasurer framerate(PFE_GL_LINKGRAPH);
+			PerformanceMeasurer framerate(PerformanceElement::GameLoopLinkGraph);
 			LinkGraphSchedule::instance.JoinNext();
 		}
 	}

@@ -2,14 +2,13 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file string.cpp Handling of strings (std::string/std::string_view). */
 
 #include "stdafx.h"
 #include "debug.h"
-#include "core/math_func.hpp"
 #include "error_func.h"
 #include "string_func.h"
 #include "string_base.h"
@@ -28,7 +27,10 @@
 
 #ifdef WITH_ICU_I18N
 /* Required by StrNaturalCompare. */
+#	include <unicode/brkiter.h>
+#	include <unicode/stsearch.h>
 #	include <unicode/ustring.h>
+#	include <unicode/utext.h>
 #	include "language.h"
 #	include "gfx_func.h"
 #endif /* WITH_ICU_I18N */
@@ -182,6 +184,7 @@ void StrMakeValidInPlace(std::string &str, StringValidationSettings settings)
  * question mark, as well as determining what characters are deemed invalid.
  * @param str The string to validate.
  * @param settings The settings for the string validation.
+ * @return A copy of the valid characters of the given string.
  */
 std::string StrMakeValid(std::string_view str, StringValidationSettings settings)
 {
@@ -199,6 +202,7 @@ std::string StrMakeValid(std::string_view str, StringValidationSettings settings
  * std::string_view's constructor will assume a C-string that ends with a NUL terminator, which is one of the things
  * we are checking.
  * @param str Span of chars to validate.
+ * @return \c true iff the string is valid.
  */
 bool StrValid(std::span<const char> str)
 {
@@ -341,7 +345,7 @@ bool StrContainsIgnoreCase(std::string_view str, std::string_view value)
 /**
  * Get the length of an UTF-8 encoded string in number of characters
  * and thus not the number of bytes that the encoded string contains.
- * @param s The string to get the length for.
+ * @param str The string to get the length for.
  * @return The length of the string in characters.
  */
 size_t Utf8StringLength(std::string_view str)
@@ -452,8 +456,6 @@ int StrNaturalCompare(std::string_view s1, std::string_view s2, bool ignore_garb
 }
 
 #ifdef WITH_ICU_I18N
-
-#include <unicode/stsearch.h>
 
 /**
  * Search if a string is contained in another string using the current locale.
@@ -601,34 +603,28 @@ bool ConvertHexToBytes(std::string_view hex, std::span<uint8_t> bytes)
 
 #elif defined(WITH_ICU_I18N)
 
-#include <unicode/utext.h>
-#include <unicode/brkiter.h>
-
 /** String iterator using ICU as a backend. */
 class IcuStringIterator : public StringIterator
 {
-	icu::BreakIterator *char_itr; ///< ICU iterator for characters.
-	icu::BreakIterator *word_itr; ///< ICU iterator for words.
+	std::unique_ptr<icu::BreakIterator> char_itr; ///< ICU iterator for characters.
+	std::unique_ptr<icu::BreakIterator> word_itr; ///< ICU iterator for words.
 
 	std::vector<UChar> utf16_str;      ///< UTF-16 copy of the string.
 	std::vector<size_t> utf16_to_utf8; ///< Mapping from UTF-16 code point position to index in the UTF-8 source string.
 
 public:
-	IcuStringIterator() : char_itr(nullptr), word_itr(nullptr)
+	IcuStringIterator()
 	{
 		UErrorCode status = U_ZERO_ERROR;
-		this->char_itr = icu::BreakIterator::createCharacterInstance(icu::Locale(_current_language != nullptr ? _current_language->isocode : "en"), status);
-		this->word_itr = icu::BreakIterator::createWordInstance(icu::Locale(_current_language != nullptr ? _current_language->isocode : "en"), status);
+		auto locale = icu::Locale(_current_language != nullptr ? _current_language->isocode : "en");
+		this->char_itr.reset(icu::BreakIterator::createCharacterInstance(locale, status));
+		this->word_itr.reset(icu::BreakIterator::createWordInstance(locale, status));
 
 		this->utf16_str.push_back('\0');
 		this->utf16_to_utf8.push_back(0);
 	}
 
-	~IcuStringIterator() override
-	{
-		delete this->char_itr;
-		delete this->word_itr;
-	}
+	~IcuStringIterator() override = default;
 
 	void SetString(std::string_view s) override
 	{
@@ -759,7 +755,7 @@ public:
 class DefaultStringIterator : public StringIterator
 {
 	Utf8View string; ///< Current string.
-	Utf8View::iterator cur_pos; //< Current iteration position.
+	Utf8View::iterator cur_pos; ///< Current iteration position.
 
 public:
 	void SetString(std::string_view s) override

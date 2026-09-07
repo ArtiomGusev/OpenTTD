@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file tilearea_type.h Type for storing the 'area' of something uses on the map. */
@@ -31,6 +31,12 @@ struct OrthogonalTileArea {
 	}
 
 	OrthogonalTileArea(TileIndex start, TileIndex end);
+
+	/**
+	 * Test if this tile area is empty.
+	 * @return \c true iff the tile area is empty.
+	 */
+	inline bool IsEmpty() const { return this->tile == INVALID_TILE; }
 
 	void Add(TileIndex to_add);
 
@@ -77,7 +83,7 @@ struct DiagonalTileArea {
 	 * Construct this tile area with some set values.
 	 * @param tile The base tile.
 	 * @param a The "x" extent.
-	 * @param b The "y" estent.
+	 * @param b The "y" extent.
 	 */
 	DiagonalTileArea(TileIndex tile = INVALID_TILE, int16_t a = 0, int16_t b = 0) : tile(tile), a(a), b(b)
 	{
@@ -115,6 +121,7 @@ protected:
 	}
 
 public:
+	/** Ensure the destructor of the sub classes are called as well. */
 	virtual ~TileIterator() = default;
 
 	/**
@@ -137,16 +144,20 @@ public:
 
 	/**
 	 * Move ourselves to the next tile in the rectangle on the map.
+	 * @return Reference to this iterator.
 	 */
 	virtual TileIterator& operator ++() = 0;
 
 	/**
 	 * Allocate a new iterator that is a copy of this one.
+	 * @return A clone of this iterator.
 	 */
 	virtual std::unique_ptr<TileIterator> Clone() const = 0;
 
 	/**
 	 * Equality comparison.
+	 * @param rhs The other iterator to compare to.
+	 * @return \c true iff the tile of both iterators is the same.
 	 */
 	bool operator ==(const TileIterator &rhs) const
 	{
@@ -155,6 +166,8 @@ public:
 
 	/**
 	 * Equality comparison.
+	 * @param rhs The other iterator to compare to.
+	 * @return \c true iff the tile of both iterators is the same.
 	 */
 	bool operator ==(const TileIndex &rhs) const
 	{
@@ -192,6 +205,7 @@ public:
 
 	/**
 	 * Move ourselves to the next tile in the rectangle on the map.
+	 * @return Reference to this iterator.
 	 */
 	inline TileIterator& operator ++() override
 	{
@@ -289,7 +303,7 @@ public:
 private:
 	/* set by constructor, const afterwards */
 	uint max_radius;
-	std::array<uint, DIAGDIR_END> extent;
+	DiagDirectionIndexArray<uint> extent;
 
 	/* mutable iterator state */
 	uint cur_radius;
@@ -303,10 +317,11 @@ private:
 
 	/**
 	 * Test whether the iterator reached the end.
+	 * @return \c true iff the end of the iteration is reached.
 	 */
 	bool IsEnd() const
 	{
-		return this->cur_radius == this->max_radius && this->dir != INVALID_DIAGDIR;
+		return this->cur_radius == this->max_radius && this->dir != DiagDirection::Invalid;
 	}
 };
 

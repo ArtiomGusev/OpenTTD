@@ -2,7 +2,7 @@
  * This file is part of OpenTTD.
  * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
  */
 
 /** @file 32bpp_base.cpp Implementation of base for 32 bpp blitters. */
@@ -18,22 +18,22 @@ void *Blitter_32bppBase::MoveTo(void *video, int x, int y)
 	return (uint32_t *)video + x + y * _screen.pitch;
 }
 
-void Blitter_32bppBase::SetPixel(void *video, int x, int y, uint8_t colour)
+void Blitter_32bppBase::SetPixel(void *video, int x, int y, PixelColour colour)
 {
-	*((Colour *)video + x + y * _screen.pitch) = LookupColourInPalette(colour);
+	*((Colour *)video + x + y * _screen.pitch) = LookupColourInPalette(colour.p);
 }
 
-void Blitter_32bppBase::DrawLine(void *video, int x, int y, int x2, int y2, int screen_width, int screen_height, uint8_t colour, int width, int dash)
+void Blitter_32bppBase::DrawLine(void *video, int x, int y, int x2, int y2, int screen_width, int screen_height, PixelColour colour, int width, int dash)
 {
-	const Colour c = LookupColourInPalette(colour);
+	const Colour c = LookupColourInPalette(colour.p);
 	this->DrawLineGeneric(x, y, x2, y2, screen_width, screen_height, width, dash, [=](int x, int y) {
 		*((Colour *)video + x + y * _screen.pitch) = c;
 	});
 }
 
-void Blitter_32bppBase::DrawRect(void *video, int width, int height, uint8_t colour)
+void Blitter_32bppBase::DrawRect(void *video, int width, int height, PixelColour colour)
 {
-	Colour colour32 = LookupColourInPalette(colour);
+	Colour colour32 = LookupColourInPalette(colour.p);
 
 	do {
 		Colour *dst = (Colour *)video;
